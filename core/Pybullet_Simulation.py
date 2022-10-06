@@ -159,8 +159,28 @@ class Simulation_template(Simulation_base):
         #TODO modify from here
         # Hint: return two numpy arrays, a 3x1 array for the position vector,
         # and a 3x3 array for the rotation matrix
-        #return pos, rotmat
-        pass
+        
+        # Make sure joint name is valid
+        if jointName not in self.jointRotationAxis:
+            raise Exception('jointName does not exist.')
+        
+        transformationMatrices = self.getTransformationMatrices()
+        result = []
+        pos = []
+        rotmat = []
+
+        # Bunch of if statements???
+        if jointName == 'CHEST_JOINT0':
+            result = transformationMatrices['base_to_waist']*transformationMatrices[jointName]
+        elif jointName == 'HEAD_JOINT0':
+            result = transformationMatrices['base_to_waist']*transformationMatrices['CHEST_JOINT0']*transformationMatrices[jointName]
+        #TODO: More Equations for each joint but there must be a better way??? 
+
+        # Slice the result and return
+        pos = np.transpose([result[0:3,3]])
+        rotmat = result[0:3,0:3]
+
+        return pos, rotmat
 
     def getJointPosition(self, jointName):
         """Get the position of a joint in the world frame, leave this unchanged please."""
