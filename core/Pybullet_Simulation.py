@@ -83,17 +83,43 @@ class Simulation_template(Simulation_base):
                 Must provide a joint in order to compute the rotational matrix!")
         # TODO modify from here
         # Hint: the output should be a 3x3 rotational matrix as a numpy array
-        #return np.matrix()
-        axis = jointRotaionAxis[jointName];
+        # Get the axis from dictionary
+        axis = self.jointRotationAxis[jointName]
+
+        # Compute the x,y and z rotational matrix
+        rx = np.eye(3)
+        ry = np.eye(3)
+        rz = np.eye(3)
+        
+        # If there is rotation in the axis, recalculate the value
         if axis[0] == 1:
-        	return np.matrix([[1, 0, 0], 
-        	[0, math.cos(theta), -1 * math.sin(theta)],
-        	[0, math.sin(theta), math.cos(theta)]])
+            rx = np.matrix([
+                [1, 0, 0],
+                [0, np.cos(theta), -np.sin(theta)],
+                [0, np.sin(theta), np.cos(theta)]
+            ])
+
         if axis[1] == 1:
-        	return np.matrix([[1, 0, 0], 
-        	[0, math.cos(theta), -1 * math.sin(theta)],
-        	[0, math.sin(theta), math.cos(theta)]])
-        pass
+            ry = np.matrix([
+                [np.cos(theta), 0, np.sin(theta)],
+                [0, 1, 0],
+                [-np.sin(theta), 0, np.cos(theta)]
+            ])
+
+        if axis[2] == 1:
+            rz = np.matrix([
+                [np.cos(theta), -np.sin(theta), 0],
+                [np.sin(theta), np.cos(theta), 0],
+                [0, 0, 1]
+            ])
+
+        # Compute the rotational matrix
+        r = rz*ry*rx
+
+        # Check that the rotational matrix computed is 3x3
+        assert(len(r) == 3)
+        
+        return r
 
     def getTransformationMatrices(self):
         """
@@ -103,6 +129,24 @@ class Simulation_template(Simulation_base):
         # TODO modify from here
         # Hint: the output should be a dictionary with joint names as keys and
         # their corresponding homogeneous transformation matrices as values.
+
+        # Loop through the joints from existing dictionary
+        for jointName in self.jointRotationAxis:
+            # Get the rotation matrix and translation from parent
+            r = self.getJointRotationalMatrix(jointName,0) #TODO: find where theta is given
+            p = np.array(self.frameTranslationFromParent[jointName])
+
+            # Concatenate the rotation, translation and augmentation to get transformmation matrix
+            t = np.hstack((r,np.transpose(p)))
+            t = np.vstack((t,[0,0,0,1]))
+            
+            # Ensure the size of the matrix is correct
+            assert(len(t) == 4)
+            assert(len(t[0] == 4))
+
+            # Add back to dictionary
+            transformationMatrices[jointName] = t
+
         return transformationMatrices
 
     def getJointLocationAndOrientation(self, jointName):
