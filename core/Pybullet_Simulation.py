@@ -263,10 +263,10 @@ class Simulation_template(Simulation_base):
         
         for link in path:
             ai = self.getJointAxis(link)
-            pi = endEffectorPos - self.getJointPosition(link)
+            pi = endEffectorPos - self.getJointPosition(link) #TODO: Check Matrix Dimension, might throw problems
 
             # Cross the rotational matrix and positional vector of each link
-            cross_product = np.cross(ai,pi)
+            cross_product = np.cross(ai,pi.T)
 
             # Add the entry to the Jacobian Matrix
             J = np.vstack([J,cross_product])
@@ -292,6 +292,7 @@ class Simulation_template(Simulation_base):
         # TODO add your code here
         # Hint: return a numpy array which includes the reference angular
         # positions for all joints after performing inverse kinematics.
+        
         pass
 
     def move_without_PD(self, endEffector, targetPosition, speed=0.01, orientation=None,
