@@ -49,6 +49,29 @@ class Simulation_template(Simulation_base):
         'RHAND'      : 'RARM_JOINT5',
         'LHAND'      : 'LARM_JOINT5'
     }
+
+    jointPathDict = {
+        'base_to_waist': None,  # Fixed joint
+        # TODO: modify from here
+        'CHEST_JOINT0': ['base_to_waist', 'CHEST_JOINT0'],
+        'HEAD_JOINT0':  ['base_to_waist', 'CHEST_JOINT0', 'HEAD_JOINT0'],
+        'HEAD_JOINT1':  ['base_to_waist', 'CHEST_JOINT0', 'HEAD_JOINT0', 'HEAD_JOINT1'],
+        'LARM_JOINT0':  ['base_to_waist', 'CHEST_JOINT0', 'LARM_JOINT0'],
+        'LARM_JOINT1':  ['base_to_waist', 'CHEST_JOINT0', 'LARM_JOINT0', 'LARM_JOINT1'],
+        'LARM_JOINT2':  ['base_to_waist', 'CHEST_JOINT0', 'LARM_JOINT0', 'LARM_JOINT1', 'LARM_JOINT2'],
+        'LARM_JOINT3':  ['base_to_waist', 'CHEST_JOINT0', 'LARM_JOINT0', 'LARM_JOINT1', 'LARM_JOINT2', 'LARM_JOINT3'],
+        'LARM_JOINT4':  ['base_to_waist', 'CHEST_JOINT0', 'LARM_JOINT0', 'LARM_JOINT1', 'LARM_JOINT2', 'LARM_JOINT3', 'LARM_JOINT4'],
+        'LARM_JOINT5':  ['base_to_waist', 'CHEST_JOINT0', 'LARM_JOINT0', 'LARM_JOINT1', 'LARM_JOINT2', 'LARM_JOINT3', 'LARM_JOINT4', 'LARM_JOINT5'],
+        'RARM_JOINT0':  ['base_to_waist', 'CHEST_JOINT0', 'RARM_JOINT0'],
+        'RARM_JOINT1':  ['base_to_waist', 'CHEST_JOINT0', 'RARM_JOINT0', 'RARM_JOINT1'],
+        'RARM_JOINT2':  ['base_to_waist', 'CHEST_JOINT0', 'RARM_JOINT0', 'RARM_JOINT1', 'RARM_JOINT2'],
+        'RARM_JOINT3':  ['base_to_waist', 'CHEST_JOINT0', 'RARM_JOINT0', 'RARM_JOINT1', 'RARM_JOINT2', 'RARM_JOINT3'],
+        'RARM_JOINT4':  ['base_to_waist', 'CHEST_JOINT0', 'RARM_JOINT0', 'RARM_JOINT1', 'RARM_JOINT2', 'RARM_JOINT3', 'RARM_JOINT4'],
+        'RARM_JOINT5':  ['base_to_waist', 'CHEST_JOINT0', 'RARM_JOINT0', 'RARM_JOINT1', 'RARM_JOINT2', 'RARM_JOINT3', 'RARM_JOINT4', 'RARM_JOINT5'],
+        'RHAND'      :  ['base_to_waist', 'CHEST_JOINT0', 'RARM_JOINT0', 'RARM_JOINT1', 'RARM_JOINT2', 'RARM_JOINT3', 'RARM_JOINT4', 'RARM_JOINT5'],
+        'LHAND'      :  ['base_to_waist', 'CHEST_JOINT0', 'LARM_JOINT0', 'LARM_JOINT1', 'LARM_JOINT2', 'LARM_JOINT3', 'LARM_JOINT4', 'LARM_JOINT5']
+    }
+
     jointRotationAxis = {
         'base_to_dummy': np.zeros(3),  # Virtual joint
         'base_to_waist': np.zeros(3),  # Fixed joint
@@ -186,6 +209,7 @@ class Simulation_template(Simulation_base):
             raise Exception('jointName does not exist.')
         
         transformationMatrices = self.getTransformationMatrices()
+        
         result = []
         pos = []
         rotmat = []
@@ -227,8 +251,28 @@ class Simulation_template(Simulation_base):
         # a 3xn or a 6xn Jacobian matrix, where 'n' is the number of joints in
         # your kinematic chain.
 
-        #return np.array()
-        pass
+        # Initialise an empty Jacobiab Matrix (3xN)
+        J = np.empty((0,3))
+
+        # Obtain the end effector position
+        endEffectorPos = self.getJointPosition(endEffector)
+
+        # Loop through the path from origin to the end effector
+        # i.e. path = ['base_to_waist','CHEST_JOINT0','LARM_JOINT0','LARM_JOINT1']
+        path = self.jointPathDict[endEffector]
+        
+        for link in path:
+            ai = self.getJointAxis(link)
+            pi = endEffectorPos - self.getJointPosition(link)
+
+            # Cross the rotational matrix and positional vector of each link
+            cross_product = np.cross(ai,pi)
+
+            # Add the entry to the Jacobian Matrix
+            J = np.vstack([J,cross_product])
+        
+        # Make sure to transpose the matrix before returning
+        return J.T
 
     # Task 1.2 Inverse Kinematics
 
