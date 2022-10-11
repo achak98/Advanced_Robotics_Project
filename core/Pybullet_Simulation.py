@@ -27,6 +27,28 @@ class Simulation_template(Simulation_base):
 
     ########## Task 1: Kinematics ##########
     # Task 1.1 Forward Kinematics
+    
+    jointParentDict = {
+        'base_to_waist': None,  # Fixed joint
+        # TODO: modify from here
+        'CHEST_JOINT0': 'base_to_waist',
+        'HEAD_JOINT0': 'CHEST_JOINT0',
+        'HEAD_JOINT1': 'HEAD_JOINT0',
+        'LARM_JOINT0': 'CHEST_JOINT0',
+        'LARM_JOINT1': 'LARM_JOINT0',
+        'LARM_JOINT2': 'LARM_JOINT1',
+        'LARM_JOINT3': 'LARM_JOINT2',
+        'LARM_JOINT4': 'LARM_JOINT3',
+        'LARM_JOINT5': 'LARM_JOINT4',
+        'RARM_JOINT0': 'CHEST_JOINT0',
+        'RARM_JOINT1': 'RARM_JOINT0',
+        'RARM_JOINT2': 'RARM_JOINT1',
+        'RARM_JOINT3': 'RARM_JOINT2',
+        'RARM_JOINT4': 'RARM_JOINT3',
+        'RARM_JOINT5': 'RARM_JOINT4',
+        'RHAND'      : 'RARM_JOINT5',
+        'LHAND'      : 'LARM_JOINT5'
+    }
     jointRotationAxis = {
         'base_to_dummy': np.zeros(3),  # Virtual joint
         'base_to_waist': np.zeros(3),  # Fixed joint
