@@ -155,7 +155,7 @@ class Simulation_template(Simulation_base):
         # Loop through the joints from existing dictionary
         for jointName in self.jointRotationAxis:
             # Get the rotation matrix and translation from parent
-            r = self.getJointRotationalMatrix(jointName,0) #TODO: find where theta is given
+            r = self.getJointRotationalMatrix(jointName,self.getJointPos(jointName))
             p = np.array(self.frameTranslationFromParent[jointName])
 
             # Concatenate the rotation, translation and augmentation to get transformmation matrix
@@ -170,7 +170,6 @@ class Simulation_template(Simulation_base):
             transformationMatrices[jointName] = t
 
         return transformationMatrices
-        #Hello
 
     def getJointLocationAndOrientation(self, jointName):
         """
@@ -203,7 +202,7 @@ class Simulation_template(Simulation_base):
         rotmat = result[0:3,0:3]
 
         return pos, rotmat
-
+ 
     def getJointPosition(self, jointName):
         """Get the position of a joint in the world frame, leave this unchanged please."""
         return self.getJointLocationAndOrientation(jointName)[0]
@@ -227,6 +226,7 @@ class Simulation_template(Simulation_base):
         # size of the matrix will depend on your chosen convention. You can have
         # a 3xn or a 6xn Jacobian matrix, where 'n' is the number of joints in
         # your kinematic chain.
+
         #return np.array()
         pass
 
