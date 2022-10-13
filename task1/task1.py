@@ -57,6 +57,8 @@ debugLine = True
 ref = [0, 0, 1]
 sim = Simulation(pybulletConfigs, robotConfigs, refVect=ref)
 
+
+
 # This is an example target position for the left end effector. This target
 # position assumes your world frame is located at the base. If your world
 # frame is located at the waist, you will need to transform this vector using
@@ -67,22 +69,28 @@ targetPosition = np.array([0.37, 0.23, 1.06385])  # x,y,z coordinates in world f
 # Example code. Feel free to modify
 sim.move_without_PD(endEffector, targetPosition, speed=0.01, orientation=None, threshold=1e-3, maxIter=3000, debug=False, verbose=False)
 
+print(sim.getJointPosition('LARM_JOINT5'))
 
 # Now plot some graphs
 task1_figure_name = "task1_kinematics.png"
 task1_savefig = True
 # ...
 
-fig = plt.figure(figsize=(6, 4))
+# fig = plt.figure(figsize=(6, 4))
 
-plt.plot(pltTime, pltEFPosition, color='blue')
-plt.xlabel("Time s")
-plt.ylabel("Distance to target position")
+# plt.plot(pltTime, pltEFPosition, color='blue')
+# plt.xlabel("Time s")
+# plt.ylabel("Distance to target position")
 
-plt.suptitle("task1 IK without PD", size=16)
-plt.tight_layout()
-plt.subplots_adjust(left=0.15)
+# plt.suptitle("task1 IK without PD", size=16)
+# plt.tight_layout()
+# plt.subplots_adjust(left=0.15)
 
-if task1_savefig:
-    fig.savefig(task1_figure_name)
-plt.show()
+# if task1_savefig:
+#     fig.savefig(task1_figure_name)
+# plt.show()
+
+try:
+    time.sleep(float(sys.argv[1]))
+except:
+    time.sleep(10)

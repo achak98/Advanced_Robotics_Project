@@ -287,23 +287,21 @@ class Simulation(Simulation_base):
         """
         
         # x_refs
-        Q = []
+        Q = np.empty((0,15))
 
-        # Current position of each step
+        # Current revolut position of each step
         current_q = []
-        
-        # Find the joints affected by the endEffector
-        path = self.jointPathDict[endEffector]
         
         # Need to include all joints
         for joint in self.jointList:
-            current_q.append(self.getJointPosition(joint))
+            current_q.append(self.getJointPos(joint))
+        print(current_q)
         assert(len(current_q) == 15)
         
-        Q.append(current_q)
+        Q = np.vstack((Q,current_q))
 
         # Calculate the positions the end effector should go to
-        endEffectorPos = self.getJointPosition(endEffector)
+        endEffectorPos = self.getJointPosition(endEffector).flatten()
         step_positions = np.linspace(endEffectorPos, targetPosition, interpolationSteps)
         assert(len(step_positions == interpolationSteps))
 
@@ -315,24 +313,23 @@ class Simulation(Simulation_base):
             # Compute the dy steps
             newgoal = step_positions[i, :]
             deltaStep = newgoal - endEffectorPos
-            
+                 
             # Define the dy
             subtarget = np.array([deltaStep[0], deltaStep[1], deltaStep[2]])
             
             # Compute dq from dy and pseudo-Jacobian
             pseudoJacobian = np.linalg.pinv(J)
-            rad_q = pseudoJacobian@(subtarget)
-        
+            rad_q = np.dot(pseudoJacobian,subtarget)
+            
             # Update the robot configuration
             current_q = current_q + rad_q
-            Q.append(current_q)
-
+            Q = np.vstack((Q,current_q))
             # Update end effector position and check how close it is to target
-            endEffectorPos = current_q
-            if np.absolute(endEffectorPos-targetPosition) <= threshold:
-                break
+            # endEffectorPos = self.getJointPosition(endEffector)
+            # if np.absolute(endEffectorPos-targetPosition) <= threshold:
+            #    break
 
-        return Q
+        return Q 
 
     def move_without_PD(self, endEffector, targetPosition, speed=0.01, orientation=None,
         threshold=1e-3, maxIter=3000, debug=False, verbose=False):
@@ -345,11 +342,12 @@ class Simulation(Simulation_base):
         #TODO add your code here
         # iterate through joints and update joint states based on IK solver
                 
-        trajectory = self.inverseKinematics(endEffector, targetPosition, orientation, 100, maxIter, threshold)
-        print(trajectory)
+        trajectory = self.inverseKinematics(endEffector, targetPosition, orientation, 1000, maxIter, threshold)
+        print(trajectory.shape)
         # Loop through the path and update its state based on the target positions
-        for joint in self.jointList:
-            self.p.resetJointState(self.robot, self.jointIds[joint], trajectory)
+        for dy in trajectory:
+            for joint in self.jointList:
+                self.p.resetJointState(self.robot, self.jointIds[joint], dy[(self.jointIds[joint]-2)])
             
         #return pltTime, pltDistance
         pass
