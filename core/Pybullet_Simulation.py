@@ -265,11 +265,43 @@ class Simulation_template(Simulation_base):
         Return: \\
             Vector of x_refs
         """
-        # TODO add your code here
-        # Hint: return a numpy array which includes the reference angular
-        # positions for all joints after performing inverse kinematics.
         
-        pass
+        Q = []
+        path = self.jointPathDict[endEffector]
+        current_q = []
+        for joint in path:
+                    current_q.append(self.getJointPosition(joint))
+        Q.append(current_q)
+        endEffectorPos = self.getJointPosition(endEffector)
+        step_positions = np.linspace(endEffectorPos, targetPosition, interpolationSteps)
+
+
+        for i in range(IK_steps):
+            
+            # obtain the Jacobian, use the current joint configurations and E-F position
+            
+            J = self.jacobianMatrix(endEffector)
+            
+            
+            # compute the dy steps
+            newgoal = step_positions[i, :]
+            deltaStep = newgoal - endEffectorPos
+            
+            # define the dy
+            subtarget = np.array([deltaStep[0], deltaStep[1], 0])
+
+            # compute dq from dy and pseudo-Jacobian
+     
+            pseudoJacobian = np.linalg.pinv(J)
+            rad_q = pseudoJacobian@(subtarget)
+        
+            
+            # update the robot configuration
+            current_q += rad_q
+            Q.append(current_q)
+    
+
+        return Q
 
     def move_without_PD(self, endEffector, targetPosition, speed=0.01, orientation=None,
         threshold=1e-3, maxIter=3000, debug=False, verbose=False):
@@ -281,7 +313,7 @@ class Simulation_template(Simulation_base):
         """
         #TODO add your code here
         # iterate through joints and update joint states based on IK solver
-
+        
         #return pltTime, pltDistance
         pass
 
