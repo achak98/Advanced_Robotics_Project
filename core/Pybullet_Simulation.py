@@ -10,7 +10,6 @@ import yaml
 
 from Pybullet_Simulation_base import Simulation_base
 
-# TODO: Rename class name after copying this file
 class Simulation(Simulation_base):
     """A Bullet simulation involving Nextage robot"""
 
@@ -286,23 +285,19 @@ class Simulation(Simulation_base):
             Vector of x_refs
         """
         # x_refs
-        Q = np.empty((15,3))
+        Q = np.empty((0,15))
 
-        # Current position of each step
-        current_q = np.empty((0,3))
-        
-        # Find the joints affected by the endEffector
-        path = self.jointPathDict[endEffector]
+        # Current revolut position of each step
+        current_q = []
         
         # Need to include all joints
         for joint in self.jointList:
-            current_q = np.vstack([current_q, self.getJointPosition(joint)])
+            current_q.append(self.getJointPos(joint))
         assert(len(current_q) == 15)
-        
-        Q = np.dstack([Q,current_q])
+        Q = np.vstack((Q,current_q))
 
         # Calculate the positions the end effector should go to
-        endEffectorPos = self.getJointPosition(endEffector)
+        endEffectorPos = self.getJointPosition(endEffector).flatten()
         step_positions = np.linspace(endEffectorPos, targetPosition, interpolationSteps)
         assert(len(step_positions == interpolationSteps))
 
@@ -312,26 +307,32 @@ class Simulation(Simulation_base):
             J = self.jacobianMatrix(endEffector)
             
             # Compute the dy steps
-            newgoal = step_positions[i, :]
-            deltaStep = newgoal - endEffectorPos
-            
+            newGoal = step_positions[i, :]
+            deltaStep = newGoal - endEffectorPos
+            #print('newgoal: ',newgoal)
             # Define the dy
             subtarget = np.array([deltaStep[0], deltaStep[1], deltaStep[2]])
-            
+            # print('subtargets: ', subtarget)
             # Compute dq from dy and pseudo-Jacobian
             pseudoJacobian = np.linalg.pinv(J)
-            rad_q = pseudoJacobian@(subtarget)
-        
+            rad_q = np.dot(pseudoJacobian,subtarget)
+            
             # Update the robot configuration
             current_q = current_q + rad_q
-            Q.append(current_q)
+            Q = np.vstack((Q,current_q))
 
             # Update end effector position and check how close it is to target
-            endEffectorPos = current_q
-            if np.absolute(endEffectorPos-targetPosition) <= threshold:
-                break
+            for joint in self.jointList:
+                self.p.resetJointState(self.robot, self.jointIds[joint], current_q[(self.jointIds[joint] - 2)])
 
-        return Q
+            endEffectorPos = self.getJointPosition(endEffector).flatten()
+            print('Updated endEffectorPos: ', endEffectorPos)
+            err = np.absolute(endEffectorPos - targetPosition)
+            err_res =err < threshold
+            if err_res.all():
+                print(err_res)
+                break
+        return Q 
 
     def move_without_PD(self, endEffector, targetPosition, speed=0.01, orientation=None,
         threshold=1e-3, maxIter=3000, debug=False, verbose=False):
@@ -343,14 +344,10 @@ class Simulation(Simulation_base):
         """
         #TODO add your code here
         # iterate through joints and update joint states based on IK solver
-                
-        # Obtain the path to the end effector
-        path = self.jointPathDict[endEffector]
-        trajectory = self.inverseKinematics(endEffector, targetPosition, orientation, 100, maxIter, threshold)
-        # Loop through the path and update its state based on the target positions
-        for joint in path:
-            self.p.resetJointState(self.robot, self.jointIds[joint], trajectory)
+        print(self.jointIds)
+        trajectory = self.inverseKinematics(endEffector, targetPosition, orientation, 500, maxIter, threshold)
 
+        # Loop through the path and update its state based on the target positions
 
         #return pltTime, pltDistance
         pass
