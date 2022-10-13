@@ -285,22 +285,21 @@ class Simulation(Simulation_base):
         Return: \\
             Vector of x_refs
         """
-        
         # x_refs
-        Q = []
+        Q = np.empty((15,3))
 
         # Current position of each step
-        current_q = []
+        current_q = np.empty((0,3))
         
         # Find the joints affected by the endEffector
         path = self.jointPathDict[endEffector]
         
         # Need to include all joints
         for joint in self.jointList:
-            current_q.append(self.getJointPosition(joint))
+            current_q = np.vstack([current_q, self.getJointPosition(joint)])
         assert(len(current_q) == 15)
         
-        Q.append(current_q)
+        Q = np.dstack([Q,current_q])
 
         # Calculate the positions the end effector should go to
         endEffectorPos = self.getJointPosition(endEffector)
