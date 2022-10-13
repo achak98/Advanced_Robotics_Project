@@ -27,28 +27,6 @@ class Simulation_template(Simulation_base):
 
     ########## Task 1: Kinematics ##########
     # Task 1.1 Forward Kinematics
-    
-    jointParentDict = {
-        'base_to_waist': None,  # Fixed joint
-        # TODO: modify from here
-        'CHEST_JOINT0': 'base_to_waist',
-        'HEAD_JOINT0': 'CHEST_JOINT0',
-        'HEAD_JOINT1': 'HEAD_JOINT0',
-        'LARM_JOINT0': 'CHEST_JOINT0',
-        'LARM_JOINT1': 'LARM_JOINT0',
-        'LARM_JOINT2': 'LARM_JOINT1',
-        'LARM_JOINT3': 'LARM_JOINT2',
-        'LARM_JOINT4': 'LARM_JOINT3',
-        'LARM_JOINT5': 'LARM_JOINT4',
-        'RARM_JOINT0': 'CHEST_JOINT0',
-        'RARM_JOINT1': 'RARM_JOINT0',
-        'RARM_JOINT2': 'RARM_JOINT1',
-        'RARM_JOINT3': 'RARM_JOINT2',
-        'RARM_JOINT4': 'RARM_JOINT3',
-        'RARM_JOINT5': 'RARM_JOINT4',
-        'RHAND'      : 'RARM_JOINT5',
-        'LHAND'      : 'LARM_JOINT5'
-    }
 
     jointPathDict = {
         'base_to_waist': None,  # Fixed joint
@@ -207,19 +185,14 @@ class Simulation_template(Simulation_base):
         # Make sure joint name is valid
         if jointName not in self.jointRotationAxis:
             raise Exception('jointName does not exist.')
-        
         transformationMatrices = self.getTransformationMatrices()
         
-        result = []
-        pos = []
-        rotmat = []
-
-        # Bunch of if statements???
-        if jointName == 'CHEST_JOINT0':
-            result = transformationMatrices['base_to_waist']*transformationMatrices[jointName]
-        elif jointName == 'HEAD_JOINT0':
-            result = transformationMatrices['base_to_waist']*transformationMatrices['CHEST_JOINT0']*transformationMatrices[jointName]
-        #TODO: More Equations for each joint but there must be a better way??? 
+        result = np.identity(4)
+        
+        if(self.jointParentDict[jointName] != None):
+            path = self.jointPathDict[jointName]
+        for joint in path:
+            result *= transformationMatrices[join]
 
         # Slice the result and return
         pos = np.transpose([result[0:3,3]])
