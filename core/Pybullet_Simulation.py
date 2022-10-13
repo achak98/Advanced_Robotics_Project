@@ -286,40 +286,51 @@ class Simulation(Simulation_base):
             Vector of x_refs
         """
         
+        # x_refs
         Q = []
-        path = self.jointPathDict[endEffector]
+
+        # Current position of each step
         current_q = []
-        for joint in path:
-                    current_q.append(self.getJointPosition(joint))
+        
+        # Find the joints affected by the endEffector
+        path = self.jointPathDict[endEffector]
+        
+        # Need to include all joints
+        for joint in self.jointList:
+            current_q.append(self.getJointPosition(joint))
+        assert(len(current_q) == 15)
+        
         Q.append(current_q)
+
+        # Calculate the positions the end effector should go to
         endEffectorPos = self.getJointPosition(endEffector)
         step_positions = np.linspace(endEffectorPos, targetPosition, interpolationSteps)
+        assert(len(step_positions == interpolationSteps))
 
-
-        for i in range(IK_steps):
+        for i in range(interpolationSteps):
             
-            # obtain the Jacobian, use the current joint configurations and E-F position
-            
+            # Obtain the Jacobian, use the current joint configurations and E-F position
             J = self.jacobianMatrix(endEffector)
             
-            
-            # compute the dy steps
+            # Compute the dy steps
             newgoal = step_positions[i, :]
             deltaStep = newgoal - endEffectorPos
             
-            # define the dy
-            subtarget = np.array([deltaStep[0], deltaStep[1], 0])
-
-            # compute dq from dy and pseudo-Jacobian
-     
+            # Define the dy
+            subtarget = np.array([deltaStep[0], deltaStep[1], deltaStep[2]])
+            
+            # Compute dq from dy and pseudo-Jacobian
             pseudoJacobian = np.linalg.pinv(J)
             rad_q = pseudoJacobian@(subtarget)
         
-            
-            # update the robot configuration
-            current_q += rad_q
+            # Update the robot configuration
+            current_q = current_q + rad_q
             Q.append(current_q)
-    
+
+            # Update end effector position and check how close it is to target
+            endEffectorPos = current_q
+            if np.absolute(endEffectorPos-targetPosition) <= threshold:
+                break
 
         return Q
 
