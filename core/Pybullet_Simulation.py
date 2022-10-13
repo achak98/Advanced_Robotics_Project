@@ -284,7 +284,6 @@ class Simulation(Simulation_base):
         Return: \\
             Vector of x_refs
         """
-        
         # x_refs
         Q = np.empty((0,15))
 
