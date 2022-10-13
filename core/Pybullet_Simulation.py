@@ -189,10 +189,13 @@ class Simulation_template(Simulation_base):
         
         result = np.identity(4)
         
+        # Find the path of the endEffector
         if(self.jointParentDict[jointName] != None):
             path = self.jointPathDict[jointName]
+
+        # Loop through the path and multiply to get the end matrix
         for joint in path:
-            result *= transformationMatrices[join]
+            result *= transformationMatrices[joint]
 
         # Slice the result and return
         pos = np.transpose([result[0:3,3]])
