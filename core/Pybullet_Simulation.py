@@ -345,14 +345,12 @@ class Simulation(Simulation_base):
         #TODO add your code here
         # iterate through joints and update joint states based on IK solver
                 
-        # Obtain the path to the end effector
-        path = self.jointPathDict[endEffector]
         trajectory = self.inverseKinematics(endEffector, targetPosition, orientation, 100, maxIter, threshold)
+        print(trajectory)
         # Loop through the path and update its state based on the target positions
-        for joint in path:
+        for joint in self.jointList:
             self.p.resetJointState(self.robot, self.jointIds[joint], trajectory)
-
-
+            
         #return pltTime, pltDistance
         pass
 
