@@ -11,7 +11,7 @@ import yaml
 from Pybullet_Simulation_base import Simulation_base
 
 # TODO: Rename class name after copying this file
-class Simulation_template(Simulation_base):
+class Simulation(Simulation_base):
     """A Bullet simulation involving Nextage robot"""
 
     def __init__(self, pybulletConfigs, robotConfigs, refVect=None):
@@ -28,8 +28,27 @@ class Simulation_template(Simulation_base):
     ########## Task 1: Kinematics ##########
     # Task 1.1 Forward Kinematics
 
+    # To be used as entries for the Jacobian Matrix
+    jointList = [
+        'CHEST_JOINT0',
+        'HEAD_JOINT0',
+        'HEAD_JOINT1',
+        'LARM_JOINT0',
+        'LARM_JOINT1',
+        'LARM_JOINT2',
+        'LARM_JOINT3',
+        'LARM_JOINT4',
+        'LARM_JOINT5',
+        'RARM_JOINT0',
+        'RARM_JOINT1',
+        'RARM_JOINT2',
+        'RARM_JOINT3',
+        'RARM_JOINT4',
+        'RARM_JOINT5'
+    ]
+
     jointPathDict = {
-        'base_to_waist': None,  # Fixed joint
+        'base_to_waist': ['base_to_waist'],  # Fixed joint
         # TODO: modify from here
         'CHEST_JOINT0': ['base_to_waist', 'CHEST_JOINT0'],
         'HEAD_JOINT0':  ['base_to_waist', 'CHEST_JOINT0', 'HEAD_JOINT0'],
@@ -68,9 +87,9 @@ class Simulation_template(Simulation_base):
         'RARM_JOINT2': np.array([0, 1, 0]),
         'RARM_JOINT3': np.array([1, 0, 0]),
         'RARM_JOINT4': np.array([0, 1, 0]),
-        'RARM_JOINT5': np.array([0, 0, 1]),
-        'RHAND'      : np.array([0, 0, 0]),
-        'LHAND'      : np.array([0, 0, 0])
+        'RARM_JOINT5': np.array([0, 0, 1])
+        #'RHAND'      : np.array([0, 0, 0]),
+        #'LHAND'      : np.array([0, 0, 0])
     }
 
     frameTranslationFromParent = {
@@ -91,9 +110,9 @@ class Simulation_template(Simulation_base):
         'RARM_JOINT2': np.array([0, -0.095, -0.25]),
         'RARM_JOINT3': np.array([0.1805, 0, -0.03]),
         'RARM_JOINT4': np.array([0.1495, 0, 0]),
-        'RARM_JOINT5': np.array([0, 0, -0.1335]),
-        'RHAND'      : np.array([0, 0, 0]), # optional
-        'LHAND'      : np.array([0, 0, 0]) # optional
+        'RARM_JOINT5': np.array([0, 0, -0.1335])
+        #'RHAND'      : np.array([0, 0, 0]), # optional
+        #'LHAND'      : np.array([0, 0, 0]) # optional
     }
 
     def getJointRotationalMatrix(self, jointName=None, theta=None):
@@ -159,8 +178,8 @@ class Simulation_template(Simulation_base):
             r = self.getJointRotationalMatrix(jointName,self.getJointPos(jointName))
             p = np.array(self.frameTranslationFromParent[jointName])
 
-            # Concatenate the rotation, translation and augmentation to get transformmation matrix
-            t = np.hstack((r,np.transpose(p)))
+            # Concatenate the rotation, translation and augmentation to get transformation matrix
+            t = np.hstack((r,np.transpose(np.matrix(p))))
             t = np.vstack((t,[0,0,0,1]))
             
             # Ensure the size of the matrix is correct
@@ -186,16 +205,14 @@ class Simulation_template(Simulation_base):
         if jointName not in self.jointRotationAxis:
             raise Exception('jointName does not exist.')
         transformationMatrices = self.getTransformationMatrices()
-        
         result = np.identity(4)
         
         # Find the path of the endEffector
-        if(self.jointParentDict[jointName] != None):
-            path = self.jointPathDict[jointName]
+        path = self.jointPathDict[jointName]
 
         # Loop through the path and multiply to get the end matrix
         for joint in path:
-            result *= transformationMatrices[joint]
+            result = result*transformationMatrices[joint]
 
         # Slice the result and return
         pos = np.transpose([result[0:3,3]])
@@ -236,22 +253,25 @@ class Simulation_template(Simulation_base):
         # Loop through the path from origin to the end effector
         # i.e. path = ['base_to_waist','CHEST_JOINT0','LARM_JOINT0','LARM_JOINT1']
         path = self.jointPathDict[endEffector]
-        
-        for link in path:
-            ai = self.getJointAxis(link)
-            pi = endEffectorPos - self.getJointPosition(link) #TODO: Check Matrix Dimension, might throw problems
+        for joint in self.jointList:
+            if joint not in path:
+                J = np.vstack([J,np.zeros(3)])
+            elif joint in path:
+                ai = self.getJointAxis(joint)
+                pi = endEffectorPos - self.getJointPosition(joint)
+                pi = pi.reshape(1,3)
 
-            # Cross the rotational matrix and positional vector of each link
-            cross_product = np.cross(ai,pi.T)
+                # Cross the rotational matrix and positional vector of each link
+                cross_product = np.cross(ai,pi)
 
-            # Add the entry to the Jacobian Matrix
-            J = np.vstack([J,cross_product])
+                # Add the entry to the Jacobian Matrix
+                J = np.vstack([J,cross_product])
         
         # Make sure to transpose the matrix before returning
+        assert J.T.shape == (3,15)
         return J.T
 
     # Task 1.2 Inverse Kinematics
-
     def inverseKinematics(self, endEffector, targetPosition, orientation, interpolationSteps, maxIterPerStep, threshold):
         """Your IK solver \\
         Arguments: \\
@@ -313,7 +333,15 @@ class Simulation_template(Simulation_base):
         """
         #TODO add your code here
         # iterate through joints and update joint states based on IK solver
-        
+                
+        # Obtain the path to the end effector
+        path = self.jointPathDict[endEffector]
+        trajectory = self.inverseKinematics(endEffector, targetPosition, orientation, 100, maxIter, threshold)
+        # Loop through the path and update its state based on the target positions
+        for joint in path:
+            self.p.resetJointState(self.robot, self.jointIds[joint], trajectory)
+
+
         #return pltTime, pltDistance
         pass
 
