@@ -69,6 +69,7 @@ targetPosition = np.array([0.37, 0.23, 1.06385])  # x,y,z coordinates in world f
 # Example code. Feel free to modify
 sim.move_without_PD(endEffector, targetPosition, speed=0.01, orientation=None, threshold=1e-3, maxIter=3000, debug=False, verbose=False)
 
+print('Simulation Finished, end effecttor position: ')
 print(sim.getJointPosition('LARM_JOINT5'))
 
 # Now plot some graphs
