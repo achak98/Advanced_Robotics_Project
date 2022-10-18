@@ -70,7 +70,7 @@ class Simulation(Simulation_base):
 
     jointRotationAxis = {
         'base_to_dummy': np.zeros(3),  # Virtual joint
-        'base_to_waist': np.zeros(3),  # Fixed joint
+        'base_to_waist': np.array([0,1,0]),  # Fixed joint
         # TODO: modify from here
         'CHEST_JOINT0': np.array([0, 0, 1]),
         'HEAD_JOINT0': np.array([0, 0, 1]),
@@ -93,7 +93,7 @@ class Simulation(Simulation_base):
 
     frameTranslationFromParent = {
         'base_to_dummy': np.zeros(3),  # Virtual joint
-        'base_to_waist': np.zeros(3),  # Fixed joint
+        'base_to_waist': np.array([0,0,0.85]),  # Fixed joint
         # TODO: modify from here
         'CHEST_JOINT0': np.array([0, 0, 0.267]),
         'HEAD_JOINT0': np.array([0, 0, 0.302]),
