@@ -162,7 +162,7 @@ class Simulation(Simulation_base):
         
         return r
 
-    def getTransformationMatrices(self):
+    def getTransformationMatrices(self, theta):
         """
             Returns the homogeneous transformation matrices for each joint as a dictionary of matrices.
         """
@@ -174,7 +174,7 @@ class Simulation(Simulation_base):
         # Loop through the joints from existing dictionary
         for jointName in self.jointRotationAxis:
             # Get the rotation matrix and translation from parent
-            r = self.getJointRotationalMatrix(jointName,self.getJointPos(jointName))
+            r = self.getJointRotationalMatrix(jointName, theta)
             p = np.array(self.frameTranslationFromParent[jointName])
 
             # Concatenate the rotation, translation and augmentation to get transformation matrix
@@ -190,7 +190,7 @@ class Simulation(Simulation_base):
 
         return transformationMatrices
 
-    def getJointLocationAndOrientation(self, jointName):
+    def getJointLocationAndOrientation(self, jointName, theta=None):
         """
             Returns the position and rotation matrix of a given joint using Forward Kinematics
             according to the topology of the Nextage robot.
@@ -199,11 +199,13 @@ class Simulation(Simulation_base):
         #TODO modify from here
         # Hint: return two numpy arrays, a 3x1 array for the position vector,
         # and a 3x3 array for the rotation matrix
-        
+        if theta == None:
+            theta = self.getJointPos(jointName)
+
         # Make sure joint name is valid
         if jointName not in self.jointRotationAxis:
             raise Exception('jointName does not exist.')
-        transformationMatrices = self.getTransformationMatrices()
+        transformationMatrices = self.getTransformationMatrices(theta)
         result = np.identity(4)
         
         # Find the path of the endEffector
@@ -252,26 +254,23 @@ class Simulation(Simulation_base):
         # Loop through the path from origin to the end effector
         # i.e. path = ['base_to_waist','CHEST_JOINT0','LARM_JOINT0','LARM_JOINT1']
         path = self.jointPathDict[endEffector]
-        for joint in self.jointList:
-            if joint not in path:
-                J = np.vstack([J,np.zeros(3)])
-            elif joint in path:
-                ai = self.getJointAxis(joint)
-                pi = endEffectorPos - self.getJointPosition(joint)
-                pi = pi.reshape(1,3)
+        for joint in path:
+            ai = self.getJointAxis(joint)
+            pi = endEffectorPos - self.getJointPosition(joint)
+            pi = pi.reshape(1,3)
 
-                # Cross the rotational matrix and positional vector of each link
-                cross_product = np.cross(ai,pi)
+            # Cross the rotational matrix and positional vector of each link
+            cross_product = np.cross(ai,pi)
 
-                # Add the entry to the Jacobian Matrix
-                J = np.vstack([J,cross_product])
+            # Add the entry to the Jacobian Matrix
+            J = np.vstack([J,cross_product])
         
         # Make sure to transpose the matrix before returning
-        assert J.T.shape == (3,15)
+        assert J.T.shape == (3,len(path))
         return J.T
 
     # Task 1.2 Inverse Kinematics
-    def inverseKinematics(self, endEffector, targetPosition, orientation, interpolationSteps, maxIterPerStep, threshold):
+    def inverseKinematics(self, endEffector, targetPosition, orientation, maxIterPerStep, threshold):
         """Your IK solver \\
         Arguments: \\
             endEffector: the jointName the end-effector \\
@@ -284,55 +283,56 @@ class Simulation(Simulation_base):
         Return: \\
             Vector of x_refs
         """
-        # x_refs
-        Q = np.empty((0,15))
 
-        # Current revolut position of each step
+        # Get the path to endEffector
+        path = self.jointPathDict[endEffector]
+
+        # To store current revolut position of each step
         current_q = []
         
-        # Need to include all joints
-        for joint in self.jointList:
+        # Loop through the affected links
+        for joint in path:
             current_q.append(self.getJointPos(joint))
-        assert(len(current_q) == 15)
-        Q = np.vstack((Q,current_q))
-
-        # Calculate the positions the end effector should go to
-        endEffectorPos = self.getJointPosition(endEffector).flatten()
-        step_positions = np.linspace(endEffectorPos, targetPosition, interpolationSteps)
-        assert(len(step_positions == interpolationSteps))
-
-        for i in range(interpolationSteps):
+        assert(len(current_q) == len(path))
+        # Q = np.vstack((Q,current_q))
+        
+        for _ in range(maxIterPerStep):
             
             # Obtain the Jacobian, use the current joint configurations and E-F position
             J = self.jacobianMatrix(endEffector)
             
             # Compute the dy steps
-            newGoal = step_positions[i, :]
-            deltaStep = newGoal - endEffectorPos
-            #print('newgoal: ',newgoal)
+            deltaStep = targetPosition - endEffectorPos #This gets updated every step of the way
+
             # Define the dy
             subtarget = np.array([deltaStep[0], deltaStep[1], deltaStep[2]])
-            # print('subtargets: ', subtarget)
+            
             # Compute dq from dy and pseudo-Jacobian
             pseudoJacobian = np.linalg.pinv(J)
             rad_q = np.dot(pseudoJacobian,subtarget)
             
             # Update the robot configuration
             current_q = current_q + rad_q
-            Q = np.vstack((Q,current_q))
+            # Q = np.vstack((Q,current_q))
 
-            # Update end effector position and check how close it is to target
-            for joint in self.jointList:
-                self.p.resetJointState(self.robot, self.jointIds[joint], current_q[(self.jointIds[joint] - 2)])
-
-            endEffectorPos = self.getJointPosition(endEffector).flatten()
-            print('Updated endEffectorPos: ', endEffectorPos)
             err = np.absolute(endEffectorPos - targetPosition)
             err_res =err < threshold
             if err_res.all():
                 print(err_res)
                 break
-        return Q 
+
+            # Update end effector position and check how close it is to target
+            # i = 0
+            # for joint in path:
+            #     print(joint)
+            #     self.p.resetJointState(self.robot, self.jointIds[joint], current_q[i])
+            #     i += 1
+
+            endEffectorPos = self.getJointPosition(endEffector).flatten()
+            print('Updated endEffectorPos: ', endEffectorPos)
+            print('------')
+            
+        return current_q 
 
     def move_without_PD(self, endEffector, targetPosition, speed=0.01, orientation=None,
         threshold=1e-3, maxIter=3000, debug=False, verbose=False):
@@ -343,6 +343,19 @@ class Simulation(Simulation_base):
             pltTime, pltDistance arrays used for plotting
         """
         #TODO add your code here
+        interpolationSteps = 1000
+
+        # Calculate the positions the end effector should go to
+        endEffectorPos = self.getJointPosition(endEffector).flatten()
+        step_positions = np.linspace(endEffectorPos, targetPosition, interpolationSteps)
+        assert(len(step_positions == interpolationSteps))
+
+        for i in range(interpolationSteps):
+            for j in range(maxIter):
+                nextStep = self.inverseKinematics(endEffector, step_positions[i], orientation, maxIter, threshold)
+            pass
+
+
         # iterate through joints and update joint states based on IK solver
         print(self.jointIds)
         trajectory = self.inverseKinematics(endEffector, targetPosition, orientation, 500, maxIter, threshold)
