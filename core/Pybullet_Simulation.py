@@ -344,8 +344,8 @@ class Simulation(Simulation_base):
         traj = np.vstack((traj,init_q))
 
         # Compute the initial distance to target
-        distanceToTaget = endEffectorPos - targetPosition
-        pltDistance = [distanceToTaget[2]] # Take z axis here
+        distanceToTaget = np.linalg.norm(endEffectorPos - targetPosition)
+        pltDistance = [distanceToTaget] # Take z axis here
         pltTime = [0]
 
 
@@ -363,11 +363,11 @@ class Simulation(Simulation_base):
 
             # Compute the endEffector position after the move
             endEffectorPos = self.getJointPosition(endEffector).flatten()
-            distanceToTaget = endEffectorPos - targetPosition
+            distanceToTaget = np.linalg.norm(endEffectorPos - targetPosition)
 
             # Update Plotting
             pltTime.append(pltTime[-1]+ 1/240)
-            pltDistance.append(distanceToTaget[2])
+            pltDistance.append(distanceToTaget)
 
             # Check if we are already within accuracy threshold
             err = np.absolute(endEffectorPos - targetPosition)
