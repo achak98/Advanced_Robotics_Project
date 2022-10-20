@@ -299,7 +299,7 @@ class Simulation(Simulation_base):
         J = self.jacobianMatrix(endEffector)
 
         # Compute the dy steps
-        deltaStep = targetPosition - endEffectorPos #This gets updated every step of the way
+        deltaStep = np.linalg.norm(endEffectorPos - targetPosition)
 
         # Define the dy
         subtarget = np.array([deltaStep[0], deltaStep[1], deltaStep[2]])
