@@ -299,7 +299,7 @@ class Simulation(Simulation_base):
         J = self.jacobianMatrix(endEffector)
 
         # Compute the dy steps
-        deltaStep = targetPosition - endEffectorPos #This gets updated every step of the way
+        deltaStep = np.linalg.norm(endEffectorPos - targetPosition)
 
         # Define the dy
         subtarget = np.array([deltaStep[0], deltaStep[1], deltaStep[2]])
@@ -363,7 +363,7 @@ class Simulation(Simulation_base):
 
             # Compute the endEffector position after the move
             endEffectorPos = self.getJointPosition(endEffector).flatten()
-            distanceToTaget = endEffectorPos - targetPosition
+            distanceToTaget = np.linalg.norm(endEffectorPos - targetPosition)
 
             # Update Plotting
             pltTime.append(pltTime[-1]+ 1/240)
