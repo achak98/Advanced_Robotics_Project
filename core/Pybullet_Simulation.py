@@ -313,6 +313,8 @@ class Simulation(Simulation_base):
 
         return current_q
 
+    #Refactor some more, make move without PD callable in tick_without_pd which goes joint by joint????!!!!
+    # because move_with_PD is move_without_PD with PD_control and tick_with_PD calls move_with_pd ????!
     def move_without_PD(self, endEffector, targetPosition, speed=0.01, orientation=None,
         threshold=1e-3, debug=False, verbose=False):
         """
@@ -448,18 +450,129 @@ class Simulation(Simulation_base):
                 force=torque
             )
             # calculate the physics and update the world
+            compensation = self.jointGravCompensation[joint]
+            self.p.applyExternalForce(
+                objectUniqueId=self.robot,
+                linkIndex=self.jointIds[joint],
+                forceObj=[0, 0, -compensation],
+                posObj=self.getLinkCoM(joint),
+                flags=self.p.WORLD_FRAME
+            )
+            
             self.p.stepSimulation()
             time.sleep(self.dt)
 
         targetPosition, targetVelocity = float(targetPosition), float(targetVelocity)
         # NOT SURE WHATS GOING ON?? CALL toy_tick??
-
-
+        jointPosi = getJointPosition(joint)
+        inverseKinematics(self, endEffector, targetPosition, orientation, threshold)
         # disable joint velocity controller before apply a torque
         self.disableVelocityController(joint)
         # logging for the graph
         pltTime, pltTarget, pltTorque, pltTorqueTime, pltPosition, pltVelocity = [], [], [], [], [], []
+        toy_tick(x_ref, x_real, dx_ref, dx_real, integral)
+        return pltTime, pltTarget, pltTorque, pltTorqueTime, pltPosition, pltVelocity
+                #TODO add your code here
+                
+        def func_that_does_it_all (self, joint, targetPosition, targetVelocity, verbose=False):
+        interpolationSteps = 500
+        pltTime, pltTarget, pltTorque, pltTorqueTime, pltPosition, pltVelocity = [0], [], [0], [0], [], [0]
+        # Obtain path to end effector
+        path = self.jointPathDict[joint]
 
+        # Calculate the positions the end effector should go to
+        endEffectorPos = self.getJointPosition(joint).flatten()
+        pltTarget = np.linspace(endEffectorPos, targetPosition, interpolationSteps)
+        assert(len(step_positions == interpolationSteps))
+
+        # To store initial revolut position of each step
+        init_q = []
+        # Loop through the affected links
+        for joint in path:
+            init_q.append(self.getJointPos(joint))
+        assert(len(init_q) == len(path))
+
+        # Store the full trajectory here
+        pltPosition = np.empty((0,len(path)))
+        pltPosition = np.vstack((traj,init_q))
+        pltTorque = np.zeros(len(path))
+        pltVelocity = np.zeros(len(path))
+
+        # Compute the initial distance to target
+        distanceToTarget = np.linalg.norm(endEffectorPos - targetPosition)
+        pltDistance = [distanceToTarget] # Take z axis here
+
+        def toy_tick(x_ref, x_real, dx_ref, dx_real, integral):
+            # loads your PID gains
+            jointController = self.jointControllers[joint]
+            kp = self.ctrlConfig[jointController]['pid']['p']
+            ki = self.ctrlConfig[jointController]['pid']['i']
+            kd = self.ctrlConfig[jointController]['pid']['d']
+
+            ### Start your code here: ###
+            # Calculate the torque with the above method you've made
+            torque = self.calculateTorque(x_ref, x_real, dx_ref, dx_real, integral, kp, ki, kd) #need to append torque for every joint
+            print('torque',torque)
+            ### To here ###
+
+            pltTorque.append(torque)
+
+            # send the manipulation signal to the joint
+            self.p.setJointMotorControl2(
+                bodyIndex=self.robot,
+                jointIndex=self.jointIds[joint],
+                controlMode=self.p.TORQUE_CONTROL,
+                force=torque
+            )
+            # calculate the physics and update the world
+            compensation = self.jointGravCompensation[joint]
+            self.p.applyExternalForce(
+                objectUniqueId=self.robot,
+                linkIndex=self.jointIds[joint],
+                forceObj=[0, 0, -compensation],
+                posObj=self.getLinkCoM(joint),
+                flags=self.p.WORLD_FRAME
+            )
+            
+            self.p.stepSimulation()
+            time.sleep(self.dt)
+            pltTorqueTime.append(pltTorqueTime[-1]+self.dt)
+
+        # Loop through interpolation steps
+        for i in range(interpolationSteps):
+
+            # Return revolut angles for the next one interpolation step
+            nextStep = self.inverseKinematics(endEffector, step_positions[i], orientation, threshold)
+
+            # Update joint positions with next step
+            for j, joint in enumerate(path):
+                self.p.resetJointState(self.robot, self.jointIds[joint], nextStep[j])
+
+            pltPosition = np.vstack((traj,nextStep))
+            pltVelocity = np.vstack((pltVelocity, (pltPosition[-1]-pltPosition[-2])/self.dt))
+
+            # Compute the endEffector position after the move
+            endEffectorPos = self.getJointPosition(endEffector).flatten()
+            distanceToTraget = np.linalg.norm(endEffectorPos - targetPosition)
+
+            # Update Plotting
+            pltTime.append(pltTime[-1]+ self.dt)
+            pltDistance.append(distanceToTarget)
+
+            # Check if we are already within accuracy threshold
+            err = np.absolute(endEffectorPos - targetPosition)
+            err_res = err < threshold
+            if err_res.all():
+                print('Target reached within threshold')
+                print('iteration', i, 'of', interpolationSteps)
+                break
+
+        print(pltPosition)
+        # Return plotting
+        pltTime = np.array(pltTime)
+        pltDistance = np.array(pltDistance)
+        pltTorque = np.array(pltTorque)
+        pltTorqueTime = np.array(pltTorqueTime)
         return pltTime, pltTarget, pltTorque, pltTorqueTime, pltPosition, pltVelocity
 
     def move_with_PD(self, endEffector, targetPosition, speed=0.01, orientation=None,
