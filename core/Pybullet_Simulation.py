@@ -474,9 +474,9 @@ class Simulation(Simulation_base):
         return pltTime, pltTarget, pltTorque, pltTorqueTime, pltPosition, pltVelocity
                 #TODO add your code here
                 
-        def func_that_does_it_all (self, joint, targetPosition, targetVelocity, verbose=False):
+    def func_that_does_it_all (self, joint, targetPosition, targetVelocity, verbose=False):
         interpolationSteps = 500
-        pltTime, pltTarget, pltTorque, pltTorqueTime, pltPosition, pltVelocity = [0], [], [0], [0], [], [0]
+        pltTime, pltTarget, pltTorque, pltTorqueTime, pltPosition, pltVelocity = [0], [], [], [0], [], []
         # Obtain path to end effector
         path = self.jointPathDict[joint]
 
@@ -503,40 +503,42 @@ class Simulation(Simulation_base):
         pltDistance = [distanceToTarget] # Take z axis here
 
         def toy_tick(x_ref, x_real, dx_ref, dx_real, integral):
-            # loads your PID gains
-            jointController = self.jointControllers[joint]
-            kp = self.ctrlConfig[jointController]['pid']['p']
-            ki = self.ctrlConfig[jointController]['pid']['i']
-            kd = self.ctrlConfig[jointController]['pid']['d']
+            torqueForInstance = []
+            for joint in self.joints:
+                jointController = self.jointControllers[joint]
+                kp = self.ctrlConfig[jointController]['pid']['p']
+                ki = self.ctrlConfig[jointController]['pid']['i']
+                kd = self.ctrlConfig[jointController]['pid']['d']
 
-            ### Start your code here: ###
-            # Calculate the torque with the above method you've made
-            torque = self.calculateTorque(x_ref, x_real, dx_ref, dx_real, integral, kp, ki, kd) #need to append torque for every joint
-            print('torque',torque)
-            ### To here ###
+                ### Start your code here: ###
+                # Calculate the torque with the above method you've made
+                torque = self.calculateTorque(x_ref, x_real, dx_ref, dx_real, integral, kp, ki, kd)
+                print('torque',torque)
+                ### To here ###
 
-            pltTorque.append(torque)
+                torqueForInstance.append(torque)
 
-            # send the manipulation signal to the joint
-            self.p.setJointMotorControl2(
-                bodyIndex=self.robot,
-                jointIndex=self.jointIds[joint],
-                controlMode=self.p.TORQUE_CONTROL,
-                force=torque
-            )
-            # calculate the physics and update the world
-            compensation = self.jointGravCompensation[joint]
-            self.p.applyExternalForce(
-                objectUniqueId=self.robot,
-                linkIndex=self.jointIds[joint],
-                forceObj=[0, 0, -compensation],
-                posObj=self.getLinkCoM(joint),
-                flags=self.p.WORLD_FRAME
-            )
-            
+                # send the manipulation signal to the joint
+                self.p.setJointMotorControl2(
+                    bodyIndex=self.robot,
+                    jointIndex=self.jointIds[joint],
+                    controlMode=self.p.TORQUE_CONTROL,
+                    force=torque
+                )
+                # calculate the physics and update the world
+                compensation = self.jointGravCompensation[joint]
+                self.p.applyExternalForce(
+                    objectUniqueId=self.robot,
+                    linkIndex=self.jointIds[joint],
+                    forceObj=[0, 0, -compensation],
+                    posObj=self.getLinkCoM(joint),
+                    flags=self.p.WORLD_FRAME
+                )
+                
             self.p.stepSimulation()
             time.sleep(self.dt)
             pltTorqueTime.append(pltTorqueTime[-1]+self.dt)
+            pltTorqueTime.vstack(nd.array(torqueForInstance))
 
         # Loop through interpolation steps
         for i in range(interpolationSteps):
