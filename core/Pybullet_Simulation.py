@@ -426,9 +426,9 @@ class Simulation(Simulation_base):
             targetVel - target joint velocity
         """
         def toy_tick(x_ref, x_real, dx_ref, dx_real, integral):
-            # loads your PID gains
+            # Loads your PID gains
             jointController = self.jointControllers[joint]
-            kp = self.ctrlConfig[jointController]['pid']['p']
+            kp = self.ctrlConfig[jointController]['pid']['p'] 
             ki = self.ctrlConfig[jointController]['pid']['i']
             kd = self.ctrlConfig[jointController]['pid']['d']
 
