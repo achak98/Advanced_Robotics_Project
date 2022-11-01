@@ -548,7 +548,8 @@ class Simulation(Simulation_base):
 
             # Update joint positions with next step
             for j, joint in enumerate(path):
-                self.p.resetJointState(self.robot, self.jointIds[joint], nextStep[j])
+                #self.p.resetJointState(self.robot, self.jointIds[joint], nextStep[j])
+                toy_tick(nextStep[j], self.getJointPos(joint), ( nextStep[j]-self.getJointPos(joint)[j]/self.dt, 0)
 
             pltPosition = np.vstack((traj,nextStep))
             pltVelocity = np.vstack((pltVelocity, (pltPosition[-1]-pltPosition[-2])/self.dt))
