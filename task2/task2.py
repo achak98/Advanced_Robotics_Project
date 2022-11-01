@@ -48,7 +48,7 @@ sim = Simulation(pybulletConfigs, robotConfigs)
 
 # This is an example target (angular) position for the joint LARM_JOINT2
 task2_jointName = "LARM_JOINT2"
-task2_targetPosition = np.deg2rad(-90)  # joint (angular) position in radians
+task2_targetPosition = np.deg2rad(-45)  # joint (angular) position in radians
 task2_targetVelocity = 0.0  # joint (angular) velocity in radians per second
 verbose = True
 task2_figure_name = "task2_PD_response.png"
@@ -65,17 +65,22 @@ pltTime, pltTarget, pltTorque, pltTorqueTime, pltPosition, pltVelocity = \
 fig = plt.figure(figsize=(6, 8))
 
 plt.subplot(311)
-plt.plot(pltTime, pltPosition, color='blue')
-plt.plot(pltTime, pltTarget, color='magenta')
+plt.plot(pltTime, pltPosition, color='blue', label='Joint Real Revolut Angle')
+plt.plot(pltTime, pltTarget, color='magenta', label='Joint Target Revolut Angle')
+plt.legend()
+plt.xlabel("Time s")
 plt.ylabel("Theta rads")
 
 plt.subplot(312)
-plt.plot(pltTime, pltPosition, color='blue')
-plt.plot(pltTime, pltVelocity, color='lightblue')
+plt.plot(pltTime, pltPosition, color='blue', label='Joint Real Revolut Angle')
+plt.plot(pltTime, pltVelocity, color='lightblue', label='Joint Real Revolut Velocity')
+plt.legend()
+plt.xlabel("Time s")
 plt.ylabel("Velocity rads/s")
 
 plt.subplot(313)
-plt.plot(pltTorqueTime, pltTorque, color='orange')
+plt.plot(pltTorqueTime, pltTorque, color='orange', label = 'Joint Torque Applied')
+plt.legend()
 plt.xlabel("Time s")
 plt.ylabel("Torque N")
 
@@ -85,4 +90,4 @@ plt.subplots_adjust(left=0.15)
 
 if task2_savefig:
     fig.savefig(task2_figure_name)
-plt.show()
+# plt.show()

@@ -413,7 +413,7 @@ class Simulation(Simulation_base):
             u(t) - the manipulation signal
         """
         # TODO: Add your code here
-        u_t = kp*(x_ref - x_real) - kd*dx_real
+        u_t = kp*(x_ref - x_real) - kd*(dx_ref - dx_real)
 
         return u_t
 
@@ -435,7 +435,6 @@ class Simulation(Simulation_base):
             ### Start your code here: ###
             # Calculate the torque with the above method you've made
             torque = self.calculateTorque(x_ref, x_real, dx_ref, dx_real, integral, kp, ki, kd)
-            print('torque',torque)
             ### To here ###
 
             pltTorque.append(torque)
@@ -452,13 +451,91 @@ class Simulation(Simulation_base):
             time.sleep(self.dt)
 
         targetPosition, targetVelocity = float(targetPosition), float(targetVelocity)
-        # NOT SURE WHATS GOING ON?? CALL toy_tick??
-
 
         # disable joint velocity controller before apply a torque
         self.disableVelocityController(joint)
         # logging for the graph
-        pltTime, pltTarget, pltTorque, pltTorqueTime, pltPosition, pltVelocity = [], [], [], [], [], []
+        pltTime, pltTarget, pltTorque, pltTorqueTime, pltPosition, pltVelocity = [0], [], [], [0], [], []
+
+        # Create interpolation steps (MAKE SURE THIS IS BIG)
+        interpolationSteps = 500
+
+        # Obtain path to end effector
+        path = self.jointPathDict[joint]
+
+        # Calculate the positions the end effector should go to
+        endEffectorPos = self.getJointPosition(joint).flatten()
+        pltTarget = np.linspace(endEffectorPos, targetPosition, interpolationSteps)
+        assert(len(pltTarget == interpolationSteps))
+
+        # To store initial revolut position of each step
+        init_q = []
+        # Loop through the affected links
+        for joint in path:
+            init_q.append(self.getJointPos(joint))
+        assert(len(init_q) == len(path))
+
+        # Store the full trajectory here
+        #pltPosition = np.empty((0,len(path)))
+        #pltPosition = np.vstack((pltPosition,init_q))
+        #pltTorque = np.zeros(len(path))
+        #pltVelocity = np.zeros(len(path))
+
+        # Compute the initial distance to target
+        distanceToTarget = np.linalg.norm(endEffectorPos - targetPosition)
+        pltDistance = [distanceToTarget]
+
+        distanceToTarget = abs(targetPosition - self.getJointPos(joint))
+        distThreshold = 0.05
+        velocity = self.getJointVel(joint)
+        velocityThreshold = 0.0005
+
+        # Loop through interpolation steps
+        for i in range(interpolationSteps):
+
+            # Return revolut angles for the next one interpolation step
+            nextStep = self.inverseKinematics(joint, pltTarget[i], orientation = None, threshold = 0.005)
+
+            # Update joint positions with next step
+            for j, joint in enumerate(path):
+                #self.p.resetJointState(self.robot, self.jointIds[joint], nextStep[j])
+                print(nextStep[j])
+                print(self.getJointPos(joint))
+                toy_tick(nextStep[j], self.getJointPos(joint), (nextStep[j]-self.getJointPos(joint))/self.dt, self.getJointVel(joint) ,0)
+
+         
+            pltTime.append(self.dt + pltTime[-1])
+            pltTarget.append(nextStep)
+            pltPosition.append(self.getJointPos(joint))
+            pltVelocity.append(self.getJointVel(joint))
+
+
+        # # Call to tick
+        # print(distanceToTarget>distThreshold)
+        # print(velocity != 0)
+        # while distanceToTarget>distThreshold or velocity != targetVelocity:
+            
+        #     toy_tick(targetPosition,self.getJointPos(joint), targetVelocity, self.getJointVel(joint), 0)
+            
+        #     if len(pltTime) == 0:
+        #         pltTime.append(self.dt)
+        #     else:
+        #         pltTime.append(self.dt + pltTime[-1])
+        #     pltTarget.append(targetPosition)
+        #     pltPosition.append(self.getJointPos(joint))
+        #     pltVelocity.append(self.getJointVel(joint))
+
+        #     distanceToTarget = abs(targetPosition - self.getJointPos(joint))
+        #     velocity = self.getJointVel(joint)
+
+        #     print('Goal: {}, Current: {}'.format(np.rad2deg(targetPosition), np.rad2deg(self.getJointPos(joint))))
+        #     print('Threshold Reached?: {}; Current Distance to Target: {}'.format(distanceToTarget<distThreshold, distanceToTarget))
+        #     print('Velocity reached?: {}; Current Velocity {}'.format(velocity == targetVelocity, velocity))
+        #     if distanceToTarget<distThreshold and abs(velocity - targetVelocity) < velocityThreshold:
+        #         break
+
+            
+        pltTorqueTime = pltTime
 
         return pltTime, pltTarget, pltTorque, pltTorqueTime, pltPosition, pltVelocity
 
