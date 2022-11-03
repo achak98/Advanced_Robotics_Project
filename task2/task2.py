@@ -21,7 +21,6 @@ try:
 except:
     gui = True
 
-
 ### You may want to change the code from here
 pybulletConfigs = {
     "simulation": bullet_simulation,
@@ -44,7 +43,8 @@ robotConfigs = {
     "fixedBase": True,
     "colored": False
 }
-sim = Simulation(pybulletConfigs, robotConfigs)
+ref = [0, 0, 1]
+sim = Simulation(pybulletConfigs, robotConfigs, refVect=ref)
 
 # This is an example target (angular) position for the joint LARM_JOINT2
 task2_jointName = "LARM_JOINT2"
@@ -52,7 +52,7 @@ task2_targetPosition = np.deg2rad(-45)  # joint (angular) position in radians
 task2_targetVelocity = 0.0  # joint (angular) velocity in radians per second
 verbose = True
 task2_figure_name = "task2_PD_response.png"
-task2_savefig = False
+task2_savefig = True
 ### to here
 
 

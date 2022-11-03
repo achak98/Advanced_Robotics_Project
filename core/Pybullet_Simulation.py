@@ -1,6 +1,6 @@
 from scipy.spatial.transform import Rotation as npRotation
 from scipy.special import comb
-from scipy.interpolate import CubicSpline
+from scipy.interpolate import CubicSpline, CubicHermiteSpline
 import matplotlib.pyplot as plt
 import numpy as np
 import math
@@ -162,7 +162,7 @@ class Simulation(Simulation_base):
 
         return r
 
-    def getTransformationMatrices(self):
+    def getTransformationMatrices(self, thetas = None):
         """
             Returns the homogeneous transformation matrices for each joint as a dictionary of matrices.
         """
@@ -174,7 +174,10 @@ class Simulation(Simulation_base):
         # Loop through the joints from existing dictionary
         for jointName in self.jointRotationAxis:
             # Get the rotation matrix and translation from parent
-            r = self.getJointRotationalMatrix(jointName, self.getJointPos(jointName))
+            if thetas == None or thetas[jointName] == None:
+                r = self.getJointRotationalMatrix(jointName, self.getJointPos(jointName))
+            else:
+                r = self.getJointRotationalMatrix(jointName, thetas[jointName])
             p = np.array(self.frameTranslationFromParent[jointName])
 
             # Concatenate the rotation, translation and augmentation to get transformation matrix
@@ -190,7 +193,7 @@ class Simulation(Simulation_base):
 
         return transformationMatrices
 
-    def getJointLocationAndOrientation(self, jointName):
+    def getJointLocationAndOrientation(self, jointName, thetas = None):
         """
             Returns the position and rotation matrix of a given joint using Forward Kinematics
             according to the topology of the Nextage robot.
@@ -203,7 +206,7 @@ class Simulation(Simulation_base):
         # Make sure joint name is valid
         if jointName not in self.jointRotationAxis:
             raise Exception('jointName does not exist.')
-        transformationMatrices = self.getTransformationMatrices()
+        transformationMatrices = self.getTransformationMatrices(thetas)
         result = np.identity(4)
 
         # Find the path of the endEffector
@@ -322,14 +325,14 @@ class Simulation(Simulation_base):
             pltTime, pltDistance arrays used for plotting
         """
         #TODO add your code here
-        interpolationSteps = 500
+        interpolationSteps = 100
 
         # Obtain path to end effector
         path = self.jointPathDict[endEffector]
 
         # Calculate the positions the end effector should go to
-        endEffectorPos = self.getJointPosition(endEffector).flatten()
-        step_positions = np.linspace(endEffectorPos, targetPosition, interpolationSteps)
+        endEffectorPos = self.getJointPosition(endEffector)
+        step_angles = np.linspace(endEffectorPos, targetPosition, interpolationSteps)
         assert(len(step_positions == interpolationSteps))
 
         # To store initial revolut position of each step
@@ -413,7 +416,9 @@ class Simulation(Simulation_base):
             u(t) - the manipulation signal
         """
         # TODO: Add your code here
-        u_t = kp*(x_ref - x_real) - kd*(dx_ref - dx_real)
+        u_t = kp*(x_ref - x_real) - kd*(dx_ref - dx_real) + ki * integral
+        print("TORQUE: ", u_t, " kp: ", kp, " x_ref: ", x_ref, " x_real :", x_real, "P diff: ", (x_ref - x_real), "P ctrl: ",kp*(x_ref - x_real), " kd: ", kd, " dx_real :", dx_real, "D ctrl: ", - kd*(dx_real), " ki: ", ki, "integral: ", integral, "I control: ", ki * integral)
+        
 
         return u_t
 
@@ -455,25 +460,25 @@ class Simulation(Simulation_base):
         # disable joint velocity controller before apply a torque
         self.disableVelocityController(joint)
         # logging for the graph
-        pltTime, pltTarget, pltTorque, pltTorqueTime, pltPosition, pltVelocity = [0], [], [], [0], [], []
+        pltTime, pltTarget, pltTorque, pltTorqueTime, pltPosition, pltVelocity = [0], [], [0], [0], [], [0]
 
         # Create interpolation steps (MAKE SURE THIS IS BIG)
-        interpolationSteps = 500
-
+        interpolationSteps = 5000
         # Obtain path to end effector
-        path = self.jointPathDict[joint]
-
+        #path = self.jointPathDict[joint][1:]
         # Calculate the positions the end effector should go to
-        endEffectorPos = self.getJointPosition(joint).flatten()
-        pltTarget = np.linspace(endEffectorPos, targetPosition, interpolationSteps)
-        assert(len(pltTarget == interpolationSteps))
-
-        # To store initial revolut position of each step
-        init_q = []
-        # Loop through the affected links
-        for joint in path:
-            init_q.append(self.getJointPos(joint))
-        assert(len(init_q) == len(path))
+        endEffectorPos = self.getJointPos(joint)
+        
+        xs = np.array([targetPosition, endEffectorPos])
+        ys = [np.sin(x + targetPosition) + 1  for x in xs ]
+        dydx = [0]*2
+        interp_func = CubicHermiteSpline(xs, xs, dydx)
+        x_points = np.linspace(endEffectorPos, targetPosition, interpolationSteps)
+        pltTarget = np.append(pltTarget,[interp_func(endEffectorPos)]*2)
+        pltTarget = np.append(pltTarget,interp_func(x_points))
+        
+        pltTarget = np.append(pltTarget,[interp_func(targetPosition)]*4)
+        assert(len(pltTarget == interpolationSteps+1))
 
         # Store the full trajectory here
         #pltPosition = np.empty((0,len(path)))
@@ -484,28 +489,36 @@ class Simulation(Simulation_base):
         # Compute the initial distance to target
         distanceToTarget = np.linalg.norm(endEffectorPos - targetPosition)
         pltDistance = [distanceToTarget]
-
+        pltPosition.append(self.getJointPos(joint))
+        pltPosition.append(self.getJointPos(joint))
         distanceToTarget = abs(targetPosition - self.getJointPos(joint))
-        distThreshold = 0.05
-        velocity = self.getJointVel(joint)
-        velocityThreshold = 0.0005
-
+        #IK_threshold = 0.005
+        #velocity = self.getJointVel(joint)
+        #velocityThreshold = 0.0005
+        integral = 0
         # Loop through interpolation steps
-        for i in range(interpolationSteps):
+        for i in range(1,interpolationSteps+5):
 
             # Return revolut angles for the next one interpolation step
-            nextStep = self.inverseKinematics(joint, pltTarget[i], orientation = None, threshold = 0.005)
+            #nextStep = self.inverseKinematics(joint, pltTarget[i], orientation = None, threshold = IK_threshold)
 
             # Update joint positions with next step
-            for j, joint in enumerate(path):
+            #for j, joint in enumerate(path):
                 #self.p.resetJointState(self.robot, self.jointIds[joint], nextStep[j])
-                print(nextStep[j])
-                print(self.getJointPos(joint))
-                toy_tick(nextStep[j], self.getJointPos(joint), (nextStep[j]-self.getJointPos(joint))/self.dt, self.getJointVel(joint) ,0)
-
-         
+            #print(nextStep[j])
+            #print(self.getJointPos(joint))
+            x_ref = pltTarget[i]
+            x_real = self.getJointPos(joint)
+            realVelocity = self.getJointVel(joint)
+            print("I I-1 len(pltPosition):", i, i-1, len(pltPosition))
+            approximatedRealVelocity = (pltPosition[i]-pltPosition[i-1])/self.dt
+            refVelocity = (pltTarget[i]-pltTarget[i-1])/self.dt
+            integral = (integral + (x_ref-x_real)) * self.dt
+            print("pltTarget: ",pltTarget[i], " JOINT POS: ",self.getJointPos(joint), " realVelocity: ",realVelocity, " approximatedRealVelocity: ", approximatedRealVelocity, " diff between real and approx real velo: ", realVelocity-approximatedRealVelocity ," refVelocity: ",refVelocity )
+            toy_tick(x_ref, x_real, refVelocity, approximatedRealVelocity, integral)
+            
             pltTime.append(self.dt + pltTime[-1])
-            pltTarget.append(nextStep)
+            #pltTarget.append(nextStep)
             pltPosition.append(self.getJointPos(joint))
             pltVelocity.append(self.getJointVel(joint))
 
@@ -536,7 +549,8 @@ class Simulation(Simulation_base):
 
             
         pltTorqueTime = pltTime
-
+        pltPosition = pltPosition[1:]
+        pltTarget = pltTarget[1:]
         return pltTime, pltTarget, pltTorque, pltTorqueTime, pltPosition, pltVelocity
 
     def move_with_PD(self, endEffector, targetPosition, speed=0.01, orientation=None,
@@ -570,7 +584,7 @@ class Simulation(Simulation_base):
 
             # disable joint velocity controller before apply a torque
             self.disableVelocityController(joint)
-
+            print(self.ctrlConfig)
             # loads your PID gains
             kp = self.ctrlConfig[jointController]['pid']['p']
             ki = self.ctrlConfig[jointController]['pid']['i']
