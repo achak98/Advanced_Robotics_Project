@@ -70,7 +70,7 @@ targetPosition = np.array([0.37, 0.23, 1.06385])  # x,y,z coordinates in world f
 pltTime, pltEFPosition = sim.move_without_PD(endEffector, targetPosition, speed=0.01, orientation=None, threshold=1e-3, debug=False, verbose=False)
 
 print('Simulation Finished, end effecttor position: ')
-print(sim.getJointPosition('LARM_JOINT5'))
+print(sim.getJointPosition('LARM_JOINT5').flatten())
 
 # Now plot some graphs
 task1_figure_name = "task1_kinematics.png"
