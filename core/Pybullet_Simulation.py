@@ -616,17 +616,68 @@ class Simulation(Simulation_base):
         # Iterate through joints and use states from IK solver as reference states in PD controller.
         # Perform iterations to track reference states using PD controller until reaching
         # max iterations or position threshold.
+        
+        interpolationSteps = 1000
 
+        # Obtain path to end effector
+        path = self.jointPathDict[endEffector]
 
+        # Calculate the positions the end effector should go to
+        endEffectorPos = self.getJointPosition(endEffector).flatten()
+        step_angles = np.linspace(endEffectorPos, targetPosition, interpolationSteps)
+        assert(len(step_angles == interpolationSteps))
+
+        # To store initial revolut position of each step
+        init_q = []
+        # Loop through the affected links
+        for joint in path:
+            init_q.append(self.getJointPos(joint))
+        assert(len(init_q) == len(path))
+
+        # Compute the initial distance to target
+        distanceToTaget = np.linalg.norm(endEffectorPos - targetPosition)
+        pltDistance = [distanceToTaget] # Take z axis here
+        pltTime = [0]
+
+        # Loop through interpolation steps
+        for i in range(interpolationSteps):
+
+            # Return revolut angles for the next one interpolation step
+            nextStep = self.inverseKinematics(endEffector, step_angles[i], orientation, threshold)
+
+            # Update target joint positions with next step to shared dictionary
+            for j, joint in enumerate(path):
+                self.jointTargetPos[joint] = nextStep[j]
+
+            # One step in the simulation
+            self.tick(path)
+
+            # Compute the endEffector position after the move
+            endEffectorPos = self.getJointPosition(endEffector).flatten()
+            distanceToTaget = np.linalg.norm(endEffectorPos - targetPosition)
+
+            # Update Plotting
+            pltTime.append(pltTime[-1]+ self.dt)
+            pltDistance.append(distanceToTaget)
+
+            # Check if we are already within accuracy threshold
+            err = np.absolute(endEffectorPos - targetPosition)
+            err_res = err < threshold
+            if err_res.all():
+                print('Target reached within threshold')
+                print('iteration', i, 'of', interpolationSteps)
+                break
+
+        # Return plotting
+        pltTime = np.array(pltTime)
+        pltDistance = np.array(pltDistance)
 
         # Hint: here you can add extra steps if you want to allow your PD
         # controller to converge to the final target position after performing
         # all IK iterations (optional).
+        return pltTime, pltDistance
 
-        #return pltTime, pltDistance
-        pass
-
-    def tick(self):
+    def tick(self, path):
         """Ticks one step of simulation using PD control."""
         # Iterate through all joints and update joint states using PD control.
         for joint in self.joints:
@@ -634,10 +685,12 @@ class Simulation(Simulation_base):
             jointController = self.jointControllers[joint]
             if jointController == 'SKIP_THIS_JOINT':
                 continue
+            if joint not in path:
+                continue
 
             # disable joint velocity controller before apply a torque
             self.disableVelocityController(joint)
-            print(self.ctrlConfig)
+            # print(self.ctrlConfig)
             # loads your PID gains
             kp = self.ctrlConfig[jointController]['pid']['p']
             ki = self.ctrlConfig[jointController]['pid']['i']
@@ -645,7 +698,7 @@ class Simulation(Simulation_base):
 
             ### Implement your code from here ... ###
             # TODO: obtain torque from PD controller
-            torque = self.calculateTorque(x_ref, x_real, dx_ref, dx_real, integral, kp, ki, kd)
+            torque = self.calculateTorque(self.jointTargetPos[joint], self.getJointPos(joint), 0, self.getJointVel(joint), 0, kp, ki, kd)
             ### ... to here ###
 
             self.p.setJointMotorControl2(
