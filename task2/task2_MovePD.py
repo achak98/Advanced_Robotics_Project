@@ -47,10 +47,15 @@ robotConfigs = {
 sim = Simulation(pybulletConfigs, robotConfigs)
 
 endEffector = "LARM_JOINT5"
-targetPosition = np.array([0.37, 0.23, 1.06385])  # x,y,z coordinates in world frame
+print('Initial Position')
+print(sim.getJointPosition(endEffector).flatten())
+targetPosition = np.array([0.6, 0.23,   1.0045]) # y makes arm move left and right, x forward and back
 
 # Example code. Feel free to modify
 pltTime, pltEFPosition = sim.move_with_PD(endEffector, targetPosition, speed=0.01, orientation=None, threshold=1e-3, debug=False, verbose=False)
+
+print('Simulation Finished, end effecttor position: ')
+print(sim.getJointPosition(endEffector).flatten())
 
 # Now plot some graphs
 task2_figure_name = "task2_kinematics.png"
