@@ -416,11 +416,131 @@ class Simulation(Simulation_base):
             u(t) - the manipulation signal
         """
         # TODO: Add your code here
-        u_t = kp*(x_ref - x_real) - kd*(dx_ref - dx_real)
-        # print("TORQUE: ", u_t, " kp: ", kp, " x_ref: ", x_ref, " x_real :", x_real, "P diff: ", (x_ref - x_real), "P ctrl: ",kp*(x_ref - x_real), " kd: ", kd, " dx_real :", dx_real, "D ctrl: ", - kd*(dx_real), " ki: ", ki, "integral: ", integral, "I control: ", ki * integral)
-
+        u_t = kp*(x_ref - x_real) + kd*(dx_ref - dx_real) + ki*(integral)
 
         return u_t
+
+    # functions for testing
+    def trajectoryCubicTuning(self, joint, targetPosition, targetVelocity, toy_tick):
+
+        interpolationSteps = 2000
+        pltTime, pltTarget, pltTorque, pltTorqueTime, pltPosition, pltVelocity = [0], [], [0], [0], [], [0]
+
+        # Calculate the positions the end effector should go to
+        endEffectorRevPos = self.getJointPos(joint)
+        
+        #Just how Cubic Hermite Spline works
+        xs = np.array([endEffectorRevPos, targetPosition])
+        xs.sort() #The control points Xs need to be in an increasing order.
+        ys = [np.sin(x + targetPosition) + 1  for x in xs ] #changes representation in the spline
+        dydx = [0]*2 #the spline thing-y needs the rate of change at the ends of the said control points, which in our case is 0 -> 0 velocity; doesn't really work, hence padding is needed. more on this below.
+        interp_func = CubicHermiteSpline(xs, xs, dydx)
+        x_points = np.linspace(endEffectorRevPos, targetPosition, interpolationSteps)
+        pltTarget = np.append(pltTarget,[interp_func(endEffectorRevPos)]*2) #pads the initial position in the target to ensure that zero velocity condition actually exists at the beginning
+        pltTarget = np.append(pltTarget,interp_func(x_points))
+
+        pltTarget = np.append(pltTarget,[interp_func(targetPosition)]*4) #pads final "target" position at the end to ensure that the difference with targer position is VERY negligible, and also helps reaching (tending towards) a 0 velocity state
+        assert(len(pltTarget == interpolationSteps+1))
+
+        pltPosition.append(self.getJointPos(joint)) #this is done to maintain the length of the plot given all the padding that's done in this method
+        pltPosition.append(self.getJointPos(joint))
+
+        # Loop through interpolation steps
+        for i in range(1,interpolationSteps+5): #"+5" is due to the said pads
+        
+            x_ref = pltTarget[i]
+            x_real = self.getJointPos(joint)
+            
+            approximatedRealVelocity = (pltPosition[i]-pltPosition[i-1])/self.dt #approximates real velocity, since we can't call the actual method RE:prohibited api. Turns out, works pretty well! Diff in order of e-4 or less!
+            refVelocity = (pltTarget[i]-pltTarget[i-1])/self.dt #ref velocity; what is actually used as a make-do way of attaining 0 velocity conditions
+            toy_tick(x_ref, x_real, refVelocity, approximatedRealVelocity, 0, pltTorque) #OP-est of all methods!
+            if len(pltTime) == 0:
+                pltTime.append(self.dt)
+            else:
+                pltTime.append(self.dt + pltTime[-1])
+            pltPosition.append(self.getJointPos(joint))
+            pltVelocity.append(self.getJointVel(joint))
+       
+        pltTorqueTime = pltTime
+        print('Goal: {}, Current: {}'.format(np.rad2deg(targetPosition), np.rad2deg(self.getJointPos(joint))))
+
+        pltPosition = pltPosition[1:]
+        pltTarget = pltTarget[1:]
+        
+        return pltTime, pltTarget, pltTorque, pltTorqueTime, pltPosition, pltVelocity
+
+    # functions for testing
+    def trajectoryLinearTuning(self, joint, targetPosition, targetVelocity, toy_tick):
+
+        interpolationSteps = 2000
+        pltTime, pltTarget, pltTorque, pltTorqueTime, pltPosition, pltVelocity = [], [], [], [], [], []
+
+        # Calculate the positions the end effector should go to
+        endEffectorRevPos = self.getJointPos(joint)
+        print('Initial joint angle: {}'.format(np.rad2deg(endEffectorRevPos)))
+        subtargets = np.linspace(endEffectorRevPos, targetPosition, interpolationSteps) # The reference small target steps the effector should try to reach
+        assert(len(subtargets == interpolationSteps))
+    
+        # Find the targetjointRev velocity for each step_positions
+        velRefs = []
+        for i in range(len(subtargets)-1):
+            diff = subtargets[i+1] - subtargets[i]
+            vel = diff/self.dt
+            velRefs.append(vel)
+        velRefs.append(targetVelocity)
+        assert(len(velRefs) == len(subtargets))
+
+        # Loop through all the subtargets
+        for i in range(len(subtargets)):
+            # For the first 2 data points where you cannot approximate
+            if i < 2:
+                approximatedRealVelocity = 0
+            else:
+                approximatedRealVelocity = (pltPosition[i-1]-pltPosition[i-2])/self.dt
+
+            toy_tick(subtargets[i], self.getJointPos(joint), velRefs[i], approximatedRealVelocity, 0, pltTorque)
+            
+            if len(pltTime) == 0:
+                 pltTime.append(self.dt)
+            else:
+                pltTime.append(self.dt + pltTime[-1])
+            pltTarget.append(subtargets[i])
+            pltPosition.append(self.getJointPos(joint))
+            pltVelocity.append(self.getJointVel(joint))
+       
+        pltTorqueTime = pltTime
+        print('Goal: {}, Current: {}'.format(np.rad2deg(targetPosition), np.rad2deg(self.getJointPos(joint))))
+
+        return pltTime, pltTarget, pltTorque, pltTorqueTime, pltPosition, pltVelocity
+    
+    # Function for tuning under a single end target angle
+    def targetTuning(self, joint, targetPosition, targetVelocity, toy_tick):
+
+        steps = 1000
+        pltTime, pltTarget, pltTorque, pltTorqueTime, pltPosition, pltVelocity = [], [], [], [], [], []
+
+        for i in range(steps):
+            # For the first 2 data points where you cannot approximate
+            if i < 2:
+                approximatedRealVelocity = 0
+            else:
+                approximatedRealVelocity = (pltPosition[i-1]-pltPosition[i-2])/self.dt
+            
+            # Tick one step of simulation
+            toy_tick(targetPosition, self.getJointPos(joint), targetVelocity, approximatedRealVelocity , 0, pltTorque)
+            
+            if len(pltTime) == 0:
+                 pltTime.append(self.dt)
+            else:
+                pltTime.append(self.dt + pltTime[-1])
+            pltTarget.append(targetPosition)
+            pltPosition.append(self.getJointPos(joint))
+            pltVelocity.append(self.getJointVel(joint))
+       
+        pltTorqueTime = pltTime
+        print('Goal: {}, Current: {}'.format(np.rad2deg(targetPosition), np.rad2deg(self.getJointPos(joint))))
+        
+        return pltTime, pltTarget, pltTorque, pltTorqueTime, pltPosition, pltVelocity
 
     # Task 2.2 Joint Manipulation
     def moveJoint(self, joint, targetPosition, targetVelocity, verbose=False, interpolationSteps = 5000):
@@ -430,7 +550,7 @@ class Simulation(Simulation_base):
             targetPos - target joint position \\
             targetVel - target joint velocity
         """
-        def toy_tick(x_ref, x_real, dx_ref, dx_real, integral):
+        def toy_tick(x_ref, x_real, dx_ref, dx_real, integral, pltTorque):
             # Loads your PID gains
             jointController = self.jointControllers[joint]
             kp = self.ctrlConfig[jointController]['pid']['p']
@@ -456,103 +576,31 @@ class Simulation(Simulation_base):
             time.sleep(self.dt)
 
         targetPosition, targetVelocity = float(targetPosition), float(targetVelocity)
-        print('target in radian>??', targetPosition)
-        print()
+        print('Target angle of the joint: {}'.format(np.rad2deg(targetPosition)))
 
         # disable joint velocity controller before apply a torque
         self.disableVelocityController(joint)
+        
         # logging for the graph
         pltTime, pltTarget, pltTorque, pltTorqueTime, pltPosition, pltVelocity = [], [], [], [], [], []
 
-        # Create interpolation steps (MAKE SURE THIS IS BIG)
-        interpolationSteps = 2000
-
-        # Obtain path to end effector
-        path = self.jointPathDict[joint]
-
         # Calculate the positions the end effector should go to
         endEffectorRevPos = self.getJointPos(joint)
-        print(endEffectorRevPos)
-        subtargets = np.linspace(endEffectorRevPos, targetPosition, interpolationSteps) # The reference small target steps the effector should try to reach
-        assert(len(subtargets == interpolationSteps))
+        print('Initial joint angle: {}'.format(np.rad2deg(endEffectorRevPos)))
 
-        subtargets = np.delete(subtargets,0)
-        subtargets = np.append(subtargets, targetPosition)
-        # Find the targetjointRev velocity for each step_positions
-        velRefs = []
-        for i in range(len(subtargets)-1):
-            diff = abs(subtargets[i+1] - subtargets[i])
-            vel = diff/self.dt
-            velRefs.append(vel)
-        velRefs.append(targetVelocity)
-        assert(len(velRefs) == len(subtargets))
+        ################### Three tuning methods, Uncomment to select ########################
 
-        # To store initial revolut position of each step
-        #init_q = []
-        # Loop through the affected links
-        #for joint in path:
-        #    init_q.append(self.getJointPos(joint))
-        #assert(len(init_q) == len(path))
+        pltTime, pltTarget, pltTorque, pltTorqueTime, pltPosition, pltVelocity = self.trajectoryCubicTuning(joint, targetPosition, targetVelocity, toy_tick)
+        # pltTime, pltTarget, pltTorque, pltTorqueTime, pltPosition, pltVelocity = self.trajectoryLinearTuning(joint, targetPosition, targetVelocity, toy_tick)
+        # pltTime, pltTarget, pltTorque, pltTorqueTime, pltPosition, pltVelocity = self.targetTuning(joint, targetPosition, targetVelocity, toy_tick)
 
-        distThreshold = 0.01
-        velocityThreshold = 0.0005
-
-        # Loop through all the subtargets
-        for i in range(len(subtargets)):
-            distanceToTarget = abs(subtargets[i] - self.getJointPos(joint))
-            velocityDiff = abs(velRefs[i] - self.getJointVel(joint))
-            velocity = self.getJointVel(joint)
-            while distanceToTarget>distThreshold:
-                toy_tick(subtargets[i], self.getJointPos(joint), velRefs[i], self.getJointVel(joint), 0)
-                distanceToTarget = abs(subtargets[i] - self.getJointPos(joint))
-                velocityDiff = abs(velRefs[i] - self.getJointVel(joint))
-                velocity = self.getJointVel(joint)
-                print("The target angle is {}, and the current angle is {}".format(subtargets[i], self.getJointPos(joint)))
-                print("The ref velocity is {}, and the current velocity is {}".format(velRefs[i], velocity))
-
-                if len(pltTime) == 0:
-                    pltTime.append(self.dt)
-                else:
-                    pltTime.append(self.dt + pltTime[-1])
-                pltTarget.append(subtargets[i])
-                pltPosition.append(self.getJointPos(joint))
-                pltVelocity.append(self.getJointVel(joint))
-            print('---------------------------------------------------------------------------')
-        # velocity = self.getJointVel(joint)
-        # while velocity != targetVelocity:
-        #     toy_tick(targetPosition,self.getJointPos(joint), targetVelocity, self.getJointVel(joint), 0)
-        #     velocity = self.getJointVel(joint)
-        #     pltTime.append(self.dt + pltTime[-1])
-        #     pltTarget.append(targetPosition)
-        #     pltPosition.append(self.getJointPos(joint))
-        #     pltVelocity.append(self.getJointVel(joint))
-        #     print("final lapssssssssssssssss")
-        pltTorqueTime = pltTime
-        print('Goal: {}, Current: {}'.format(np.rad2deg(targetPosition), np.rad2deg(self.getJointPos(joint))))
-
-        # Call to ti
-        # print(distanceToTarget>distThreshold)
-        # print(velocity != 0)
-        # while distanceToTarget>distThreshold or velocity != targetVelocity:
-
-            # toy_tick(targetPosition,self.getJointPos(joint), targetVelocity, self.getJointVel(joint), 0)
-
-            # if len(pltTime) == 0:
-            #     pltTime.append(self.dt)
-            # else:
-            #     pltTime.append(self.dt + pltTime[-1])
-            # pltTarget.append(targetPosition)
-            # pltPosition.append(self.getJointPos(joint))
-            # pltVelocity.append(self.getJointVel(joint))
-
-            # distanceToTarget = abs(targetPosition - self.getJointPos(joint))
-            # velocity = self.getJointVel(joint)
-
-            # print('Goal: {}, Current: {}'.format(np.rad2deg(targetPosition), np.rad2deg(self.getJointPos(joint))))
-            # print('Threshold Reached?: {}; Current Distance to Target: {}'.format(distanceToTarget<distThreshold, distanceToTarget))
-            # print('Velocity reached?: {}; Current Velocity {}'.format(velocity == targetVelocity, velocity))
-            # if distanceToTarget<distThreshold and abs(velocity - targetVelocity) < velocityThreshold:
-            #     break
+        # Check the joint angle against target       
+        distThreshold = 0.035 # Given on the lab guidebook
+        deltaAngle = abs(self.getJointPos(joint) - targetPosition)
+        if deltaAngle <= distThreshold:
+            print('Threhold met, difference is {}'.format(np.rad2deg(deltaAngle)))
+        else:
+            print('Goal Failed, difference is {}'.format(np.rad2deg(deltaAngle)))
 
         return pltTime, pltTarget, pltTorque, pltTorqueTime, pltPosition, pltVelocity
 
