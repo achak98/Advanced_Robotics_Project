@@ -50,6 +50,7 @@ endEffector = "LARM_JOINT5"
 print('Initial Position')
 print(sim.getJointPosition(endEffector).flatten())
 targetPosition = np.array([0.6, 0.23,   1.0045]) # y makes arm move left and right, x forward and back
+print('Target Position: {}'.format(targetPosition))
 
 # Example code. Feel free to modify
 pltTime, pltEFPosition = sim.move_with_PD(endEffector, targetPosition, speed=0.01, orientation=None, threshold=1e-3, debug=False, verbose=False)
