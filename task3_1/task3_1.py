@@ -90,12 +90,24 @@ def getReadyForTask():
 
 
 def solution():
-    # TODO: Add 
+    # TODO: Add
     endEffector = "LARM_JOINT5"
     print('Initial Position')
     print(sim.getJointPosition(endEffector).flatten())
-    targetPosition = np.array([0.33, 0,   1])
-    sim.move_with_PD(endEffector, targetPosition, speed=0.01, orientation=None, threshold=1e-3, debug=False, verbose=False)
+    # way point 1
+    targetPosition = [0.33, 0, 1.0]
+    wayPoint1 = sim.getJointPosition(endEffector).flatten()
+    wayPoint1[0] = targetPosition[0]
+    sim.move_with_PD(endEffector, wayPoint1, speed=0.01, orientation=None, threshold=1e-3, debug=False, verbose=False)
+
+    wayPoint2 = sim.getJointPosition(endEffector).flatten()
+    wayPoint2[2] = targetPosition[2]
+    sim.move_with_PD(endEffector, wayPoint2, speed=0.01, orientation=None, threshold=1e-3, debug=False, verbose=False)
+
+    wayPoint3 = sim.getJointPosition(endEffector).flatten()
+    wayPoint3[1] = targetPosition[1]
+    sim.move_with_PD(endEffector, wayPoint3, speed=0.01, orientation=None, threshold=1e-3, debug=False, verbose=False)
+
     pass
 
 tableId, cubeId, targetId = getReadyForTask()
