@@ -52,63 +52,69 @@ robotConfigs = {
 verbose = False
 debugLine = True
 
-# sim = Simulation_template(pybulletConfigs, robotConfigs)
-# print(sim.joints)
+sim = Simulation_template(pybulletConfigs, robotConfigs)
+print(sim.joints)
 
-# def getMotorJointStates(p, robot):
-#     joint_states = p.getJointStates(robot, range(p.getNumJoints(robot)))
-#     joint_infos = [p.getJointInfo(robot, i) for i in range(p.getNumJoints(robot))]
-#     joint_states = [j for j, i in zip(joint_states, joint_infos) if i[3] > -1]
-#     joint_positions = [state[0] for state in joint_states]
-#     joint_velocities = [state[1] for state in joint_states]
-#     joint_torques = [state[3] for state in joint_states]
-#     return joint_positions, joint_velocities, joint_torques
+def getMotorJointStates(p, robot):
+    joint_states = p.getJointStates(robot, range(p.getNumJoints(robot)))
+    joint_infos = [p.getJointInfo(robot, i) for i in range(p.getNumJoints(robot))]
+    joint_states = [j for j, i in zip(joint_states, joint_infos) if i[3] > -1]
+    joint_positions = [state[0] for state in joint_states]
+    joint_velocities = [state[1] for state in joint_states]
+    joint_torques = [state[3] for state in joint_states]
+    return joint_positions, joint_velocities, joint_torques
 
 
-# mpos, mvel, mtorq = getMotorJointStates(bullet_simulation, sim.robot)
-# res = bullet_simulation.getLinkState(sim.robot,
-#                      sim.jointIds['LARM_JOINT5'],
-#                      computeLinkVelocity=1,
-#                      computeForwardKinematics=1)
-# link_trn, link_rot, com_trn, com_rot, frame_pos, frame_rot, link_vt, link_vr = res
-# j_geo, j_rot = bullet_simulation.calculateJacobian(
-#     sim.robot, 
-#     sim.jointIds['LARM_JOINT5'],
-#     [0,0,0], 
-#     mpos,
-#     [0.0] * len(mpos),
-#     [0.0] * len(mpos),
-# )
-# print()
-# for col in j_geo:
-#     print(col)
-# print()
-# print(len(j_geo[0]))
-# for col in j_rot:
-#     print(col)
-# print()
+mpos, mvel, mtorq = getMotorJointStates(bullet_simulation, sim.robot)
+res = bullet_simulation.getLinkState(sim.robot,
+                     sim.jointIds['LARM_JOINT5'],
+                     computeLinkVelocity=1,
+                     computeForwardKinematics=1)
+link_trn, link_rot, com_trn, com_rot, frame_pos, frame_rot, link_vt, link_vr = res
+j_geo, j_rot = bullet_simulation.calculateJacobian(
+    sim.robot, 
+    sim.jointIds['LARM_JOINT5'],
+    [0,0,0], 
+    mpos,
+    [0.0] * len(mpos),
+    [0.0] * len(mpos),
+)
+print()
+for col in j_geo:
+    print(col)
+print()
+print(len(j_geo[0]))
+for col in j_rot:
+    print(col)
+print()
 
-# try:
-#     time.sleep(float(sys.argv[1]))
-# except:
-#     time.sleep(10)
+try:
+    time.sleep(float(sys.argv[1]))
+except:
+    time.sleep(10)
 
 # Our Test Start
+'''
 sim = Simulation(pybulletConfigs, robotConfigs)
 print(sim.joints)
 
-j_geo = sim.jacobianMatrix('LARM_JOINT5')
+j_geo, j_v = sim.jacobianMatrix('LARM_JOINT5')
 print('Jacobian start')
 for col in j_geo:
     print(col)
 print('Jacobian end')
+
+print('Jacobia vector start')
+for col in j_v:
+    print(col)
+print('Jacobian vector end')
 
 try:
     time.sleep(float(sys.argv[1]))
 except:
     time.sleep(10)
 # End
-
+'''
 
 # # TODO: Add your code here to start simulation
 

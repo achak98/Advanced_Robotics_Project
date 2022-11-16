@@ -249,8 +249,13 @@ class Simulation(Simulation_base):
         # Initialise an empty Jacobiab Matrix (3xN)
         J = np.empty((0,3))
 
+        # Vector Jacobian
+        J_V = np.empty((0,3))
+
         # Obtain the end effector position
         endEffectorPos = self.getJointPosition(endEffector)
+        # Obtain the end effector rotation axis
+        endEffectorRot = self.getJointAxis(endEffector)
 
         # Loop through the path from origin to the end effector
         # i.e. path = ['base_to_waist','CHEST_JOINT0','LARM_JOINT0','LARM_JOINT1']
@@ -262,13 +267,17 @@ class Simulation(Simulation_base):
 
             # Cross the rotational matrix and positional vector of each link
             cross_product = np.cross(ai,pi)
+            cross_vector = np.cross(ai, endEffectorRot)
 
             # Add the entry to the Jacobian Matrix
             J = np.vstack([J,cross_product])
+            J_V = np.vstack([J_V, cross_vector])
 
         # Make sure to transpose the matrix before returning
         assert J.T.shape == (3,len(path))
-        return J.T
+        assert J_V.T.shape == (3,len(path))
+
+        return J.T, J_V.T
 
     # Task 1.2 Inverse Kinematics
     def inverseKinematics(self, endEffector, targetPosition, orientation, threshold):
@@ -299,7 +308,7 @@ class Simulation(Simulation_base):
         endEffectorPos = self.getJointPosition(endEffector).flatten()
 
         # Obtain the Jacobian, use the current joint configurations and E-F position
-        J = self.jacobianMatrix(endEffector)
+        J, _ = self.jacobianMatrix(endEffector)
 
         # Compute the dy steps
         deltaStep = targetPosition - endEffectorPos #This gets updated every step of the way
@@ -362,6 +371,7 @@ class Simulation(Simulation_base):
 
             # One step in the simulation
             self.tick_without_PD(path)
+            print('One Step', i)
 
             traj = np.vstack((traj,nextStep))
 
@@ -677,7 +687,7 @@ class Simulation(Simulation_base):
         # all IK iterations (optional).
         return pltTime, pltDistance
 
-    def tick(self, path):
+    def tick(self, path=None):
         """Ticks one step of simulation using PD control."""
         # Iterate through all joints and update joint states using PD control.
         for joint in self.joints:
@@ -685,8 +695,9 @@ class Simulation(Simulation_base):
             jointController = self.jointControllers[joint]
             if jointController == 'SKIP_THIS_JOINT':
                 continue
-            if joint not in path:
-                continue
+            if path != None:
+                if joint not in path:
+                    continue
 
             # disable joint velocity controller before apply a torque
             self.disableVelocityController(joint)
@@ -738,13 +749,13 @@ class Simulation(Simulation_base):
         # You may use methods found in scipy.interpolate
 
         #return xpoints, ypoints
-
         x = points[0]
         y = points[1]
         # apply cubic spline interpolation
         cs = CubicSpline(x, y, bc_type=((2, 0.0), (2, 0.0)))
         xpoints = np.linspace(points[0], points[-1], nTimes)
         ypoints = cs(xpoints)
+
         return xpoints, ypoints
 
 
@@ -762,6 +773,7 @@ class Simulation(Simulation_base):
             use move_with_pd which should be similar to move_without_pd <- in the sense that target position would be a coordinate
             after reaching behind cube, start pushing till cube reaches target
         """
+        self.move_with_PD()
 
 
     # Task 3.2 Grasping & Docking
