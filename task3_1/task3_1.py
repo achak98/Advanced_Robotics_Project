@@ -1,4 +1,5 @@
 import subprocess, math, time, sys, os, numpy as np
+from turtle import left
 import matplotlib.pyplot as plt
 import pybullet as bullet_simulation
 import pybullet_data
@@ -91,24 +92,67 @@ def getReadyForTask():
 
 def solution():
     # TODO: Add
-    endEffector = "LARM_JOINT5"
-    print('Initial Position')
-    print(sim.getJointPosition(endEffector).flatten())
-    # way point 1
+    leftWrist = "LARM_JOINT5"
     targetPosition = [0.33, 0, 1.0]
-    wayPoint1 = sim.getJointPosition(endEffector).flatten()
-    wayPoint1[0] = targetPosition[0]
-    sim.move_with_PD(endEffector, wayPoint1, speed=0.01, orientation=None, threshold=1e-3, debug=False, verbose=False)
+    print('Initial Position: {}'.format(sim.getJointPosition(leftWrist).flatten()))
+    print('Initial Orientation: {}'.format(sim.getJointAxis(leftWrist).flatten()))
+    
+    
+    # Target
+    rightWrist = "RARM_JOINT5"
+    print('Overall Target: {}'.format(targetPosition))
 
-    wayPoint2 = sim.getJointPosition(endEffector).flatten()
-    wayPoint2[2] = targetPosition[2]
-    sim.move_with_PD(endEffector, wayPoint2, speed=0.01, orientation=None, threshold=1e-3, debug=False, verbose=False)
+    # Move hands up
+    """Up1 = sim.getJointPosition(leftWrist).flatten()
+    Up1[2] += 0.2
+    sim.move_with_PD("LARM_JOINT5", Up1, interpolationSteps=40,speed=0.01, orientation=None, threshold=1e-3, debug=False, verbose=False)
+    print("UP DONE")
+    # # Move hands up
+    # Up1 = sim.getJointPosition(rightWrist).flatten()
+    # Up1[2] += 0.1
+    # sim.move_with_PD(rightWrist, Up1, interpolationSteps=500,speed=0.01, orientation=None, threshold=1e-3, debug=False, verbose=False)
 
-    wayPoint3 = sim.getJointPosition(endEffector).flatten()
-    wayPoint3[1] = targetPosition[1]
-    sim.move_with_PD(endEffector, wayPoint3, speed=0.01, orientation=None, threshold=1e-3, debug=False, verbose=False)
+    # Stop 1, move arm backward
+    wayPoint1 = sim.getJointPosition(leftWrist).flatten()
+    wayPoint1[0] = targetPosition[0] - 0.05
+    sim.move_with_PD(leftWrist, wayPoint1, interpolationSteps=50,speed=0.01, orientation=None, threshold=1e-3, debug=False, verbose=False)
+    print('End of wp1, end effector at : {}'.format(sim.getJointPosition(leftWrist).flatten()))
 
-    pass
+
+    wayPoint2 = sim.getJointPosition(leftWrist).flatten()
+    wayPoint2[1] = targetPosition[1]
+    wayPoint2[0] -= 0.1
+    sim.move_with_PD(leftWrist, wayPoint2, interpolationSteps=50, speed=0.01, orientation=None, threshold=1e-3, debug=False, verbose=False)
+    print('End of wp2, end effector at : {}'.format(sim.getJointPosition(leftWrist).flatten()))
+
+    # Move hands up
+    Up1 = sim.getJointPosition(leftWrist).flatten()
+    Up1[2] -= 0.17
+    sim.move_with_PD(leftWrist, Up1, interpolationSteps=100,speed=0.01, orientation=[0.2,0,0.2], threshold=1e-3, debug=False, verbose=False)
+
+    
+
+    # wayPoint3 = sim.getJointPosition(leftWrist).flatten()
+    # wayPoint3 = targetPosition
+    # wayPoint3[0] -= 0.15
+    # sim.move_with_PD(leftWrist, wayPoint3,interpolationSteps=100, speed=0.01, orientation = [0,0,1], threshold=1e-3, debug=False, verbose=False)
+    # print('End of wp3, end effector at : {}'.format(sim.getJointPosition(leftWrist).flatten()))
+
+    # wayPoint4 = finalTargetPos
+    # sim.move_with_PD(leftWrist, wayPoint4,interpolationSteps=1000, speed=0.01, orientation=[0,0,1], threshold=1e-3, debug=False, verbose=False)
+    # print('End of wp4, end effector at : {}'.format(sim.getJointPosition(leftWrist).flatten()))"""
+    wayPoint1 = [0.1, .1, 1.5]
+    sim.move_with_PD("LARM_JOINT4", wayPoint1,interpolationSteps=200, speed=0.01, orientation=[1,0,0], threshold=1e-3, debug=False, verbose=False)
+    print('End of wp1, end effector at : {}'.format(sim.getJointPosition(leftWrist).flatten()))
+    wayPoint2 = [0.10, 0, 1.5]
+    sim.move_with_PD(leftWrist, wayPoint2,interpolationSteps=200, speed=0.01, orientation=[1,0,0], threshold=1e-3, debug=False, verbose=False)
+    print('End of wp2, end effector at : {}'.format(sim.getJointPosition(leftWrist).flatten()))
+    wayPoint3 = [0.7, 0.00, 0.1]
+    sim.move_with_PD(leftWrist, wayPoint3,interpolationSteps=200, speed=0.01, orientation=[1,0,0], threshold=1e-3, debug=False, verbose=False)
+    print('End of wp3, end effector at : {}'.format(sim.getJointPosition(leftWrist).flatten()))
+
+
+    time.sleep(100)
 
 tableId, cubeId, targetId = getReadyForTask()
 solution()

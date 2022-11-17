@@ -44,6 +44,8 @@ class Simulation(Simulation_base):
         'RARM_JOINT3',
         'RARM_JOINT4',
         'RARM_JOINT5'
+        #'RHAND',
+        #'LHAND'
     ]
 
     jointPathDict = {
@@ -63,14 +65,14 @@ class Simulation(Simulation_base):
         'RARM_JOINT2':  ['base_to_waist', 'CHEST_JOINT0', 'RARM_JOINT0', 'RARM_JOINT1', 'RARM_JOINT2'],
         'RARM_JOINT3':  ['base_to_waist', 'CHEST_JOINT0', 'RARM_JOINT0', 'RARM_JOINT1', 'RARM_JOINT2', 'RARM_JOINT3'],
         'RARM_JOINT4':  ['base_to_waist', 'CHEST_JOINT0', 'RARM_JOINT0', 'RARM_JOINT1', 'RARM_JOINT2', 'RARM_JOINT3', 'RARM_JOINT4'],
-        'RARM_JOINT5':  ['base_to_waist', 'CHEST_JOINT0', 'RARM_JOINT0', 'RARM_JOINT1', 'RARM_JOINT2', 'RARM_JOINT3', 'RARM_JOINT4', 'RARM_JOINT5'],
-        'RHAND'      :  ['base_to_waist', 'CHEST_JOINT0', 'RARM_JOINT0', 'RARM_JOINT1', 'RARM_JOINT2', 'RARM_JOINT3', 'RARM_JOINT4', 'RARM_JOINT5'],
-        'LHAND'      :  ['base_to_waist', 'CHEST_JOINT0', 'LARM_JOINT0', 'LARM_JOINT1', 'LARM_JOINT2', 'LARM_JOINT3', 'LARM_JOINT4', 'LARM_JOINT5']
+        'RARM_JOINT5':  ['base_to_waist', 'CHEST_JOINT0', 'RARM_JOINT0', 'RARM_JOINT1', 'RARM_JOINT2', 'RARM_JOINT3', 'RARM_JOINT4', 'RARM_JOINT5']
+        #'RHAND'      :  ['base_to_waist', 'CHEST_JOINT0', 'RARM_JOINT0', 'RARM_JOINT1', 'RARM_JOINT2', 'RARM_JOINT3', 'RARM_JOINT4', 'RARM_JOINT5', 'RHAND'],
+        #'LHAND'      :  ['base_to_waist', 'CHEST_JOINT0', 'LARM_JOINT0', 'LARM_JOINT1', 'LARM_JOINT2', 'LARM_JOINT3', 'LARM_JOINT4', 'LARM_JOINT5', 'LHAND']
     }
 
     jointRotationAxis = {
         'base_to_dummy': np.zeros(3),  # Virtual joint
-        'base_to_waist': np.array([0,1,0]),  # Fixed joint
+        'base_to_waist': np.array([0,0,1]),  # Fixed joint
         # TODO: modify from here
         'CHEST_JOINT0': np.array([0, 0, 1]),
         'HEAD_JOINT0': np.array([0, 0, 1]),
@@ -87,8 +89,8 @@ class Simulation(Simulation_base):
         'RARM_JOINT3': np.array([1, 0, 0]),
         'RARM_JOINT4': np.array([0, 1, 0]),
         'RARM_JOINT5': np.array([0, 0, 1])
-        #'RHAND'      : np.array([0, 0, 0]),
-        #'LHAND'      : np.array([0, 0, 0])
+        #'RHAND'      : np.array([0, 0, 1]),
+        #'LHAND'      : np.array([0, 0, 1])
     }
 
     frameTranslationFromParent = {
@@ -110,8 +112,8 @@ class Simulation(Simulation_base):
         'RARM_JOINT3': np.array([0.1805, 0, -0.03]),
         'RARM_JOINT4': np.array([0.1495, 0, 0]),
         'RARM_JOINT5': np.array([0, 0, -0.1335])
-        #'RHAND'      : np.array([0, 0, 0]), # optional
-        #'LHAND'      : np.array([0, 0, 0]) # optional
+        #'RHAND'      : np.array([0.0095, 0, 0]), # optional
+        #'LHAND'      : np.array([0.0095, 0, 0]) # optional
     }
 
     def getJointRotationalMatrix(self, jointName=None, theta=None):
@@ -256,6 +258,7 @@ class Simulation(Simulation_base):
         endEffectorPos = self.getJointPosition(endEffector)
         # Obtain the end effector rotation axis
         endEffectorRot = self.getJointAxis(endEffector)
+       
 
         # Loop through the path from origin to the end effector
         # i.e. path = ['base_to_waist','CHEST_JOINT0','LARM_JOINT0','LARM_JOINT1']
@@ -268,19 +271,21 @@ class Simulation(Simulation_base):
             # Cross the rotational matrix and positional vector of each link
             cross_product = np.cross(ai,pi)
             cross_vector = np.cross(ai, endEffectorRot)
+            
 
             # Add the entry to the Jacobian Matrix
             J = np.vstack([J,cross_product])
             J_V = np.vstack([J_V, cross_vector])
 
+        
         # Make sure to transpose the matrix before returning
         assert J.T.shape == (3,len(path))
         assert J_V.T.shape == (3,len(path))
 
-        return J.T, J_V.T
+        return np.vstack([J.T,J_V.T])
 
     # Task 1.2 Inverse Kinematics
-    def inverseKinematics(self, endEffector, targetPosition, orientation, threshold):
+    def inverseKinematics(self, endEffector, targetPosition, threshold, orientation=None):
         """Your IK solver \\
         Arguments: \\
             endEffector: the jointName the end-effector \\
@@ -308,14 +313,22 @@ class Simulation(Simulation_base):
         endEffectorPos = self.getJointPosition(endEffector).flatten()
 
         # Obtain the Jacobian, use the current joint configurations and E-F position
-        J, _ = self.jacobianMatrix(endEffector)
+        J = self.jacobianMatrix(endEffector)
+        #print(J)
+       # exit
+        if orientation == None:
+            J = J[:3,:]
+
+        
 
         # Compute the dy steps
         deltaStep = targetPosition - endEffectorPos #This gets updated every step of the way
 
         # Define the dy
-        subtarget = np.array([deltaStep[0], deltaStep[1], deltaStep[2]])
-
+        if(orientation!=None):
+            subtarget = np.array([deltaStep[0], deltaStep[1], deltaStep[2], orientation[0], orientation[1], orientation[2]])
+        else:
+            subtarget = np.array([deltaStep[0], deltaStep[1], deltaStep[2]])
         # Compute dq from dy and pseudo-Jacobian
         pseudoJacobian = np.linalg.pinv(J)
         rad_q = np.dot(pseudoJacobian,subtarget)
@@ -362,7 +375,7 @@ class Simulation(Simulation_base):
         for i in range(interpolationSteps):
 
             # Return revolut angles for the next one interpolation step
-            nextStep = self.inverseKinematics(endEffector, step_positions[i], orientation, threshold)
+            nextStep = self.inverseKinematics(endEffector, step_positions[i], threshold, orientation)
 
             # Update target joint positions with next step to shared dictionary
             for j, joint in enumerate(path):
@@ -625,7 +638,7 @@ class Simulation(Simulation_base):
         interp_func = CubicHermiteSpline(xs, xs, dydx)
         return interp_func
         
-    def move_with_PD(self, endEffector, targetPosition, speed=0.01, orientation=None,
+    def move_with_PD(self, endEffector, targetPosition, interpolationSteps=2000, speed=0.01, orientation=None,
         threshold=1e-3, maxIter=3000, debug=False, verbose=False):
         """
         Move joints using inverse kinematics solver and using PD control.
@@ -637,8 +650,6 @@ class Simulation(Simulation_base):
         # Iterate through joints and use states from IK solver as reference states in PD controller.
         # Perform iterations to track reference states using PD controller until reaching
         # max iterations or position threshold.
-        
-        interpolationSteps = 2000
 
         # Obtain path to end effector
         path = self.jointPathDict[endEffector]
@@ -712,7 +723,7 @@ class Simulation(Simulation_base):
         for i in range(1, len(step_angles)):
 
             # Return revolut angles for the next one interpolation step
-            nextStep = self.inverseKinematics(endEffector, step_angles[i], orientation, threshold)
+            nextStep = self.inverseKinematics(endEffector, step_angles[i], threshold, orientation)
             
             # Update target joint positions with next step to shared dictionary
             for j, joint in enumerate(path):
@@ -766,9 +777,9 @@ class Simulation(Simulation_base):
             self.disableVelocityController(joint)
             # print(self.ctrlConfig)
             # loads your PID gains
-            kp = self.ctrlConfig[jointController]['pid']['p']
+            kp = self.ctrlConfig[jointController]['pid']['p'] /500
             ki = self.ctrlConfig[jointController]['pid']['i']
-            kd = self.ctrlConfig[jointController]['pid']['d']
+            kd = self.ctrlConfig[jointController]['pid']['d'] /5000
 
             ### Implement your code from here ... ###
             # TODO: obtain torque from PD controller
