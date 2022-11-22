@@ -316,7 +316,7 @@ class Simulation(Simulation_base):
         J = self.jacobianMatrix(endEffector)
         #print(J)
        # exit
-        if orientation == None:
+        if type(orientation) == type(None):
             J = J[:3,:]
 
         
@@ -325,7 +325,7 @@ class Simulation(Simulation_base):
         deltaStep = targetPosition - endEffectorPos #This gets updated every step of the way
 
         # Define the dy
-        if(orientation!=None):
+        if(type(orientation)!=type(None)):
             subtarget = np.array([deltaStep[0], deltaStep[1], deltaStep[2], orientation[0], orientation[1], orientation[2]])
         else:
             subtarget = np.array([deltaStep[0], deltaStep[1], deltaStep[2]])
@@ -424,7 +424,7 @@ class Simulation(Simulation_base):
 
     ########## Task 2: Dynamics ##########
     # Task 2.1 PD Controller
-    def calculateTorque(self, x_ref, x_real, dx_ref, dx_real, integral, kp, ki, kd):
+    def calculateTorque(self, x_ref, x_real, dx_ref, dx_real, integral, kp, ki, kd, joint = None):
         """ This method implements the closed-loop control \\
         Arguments: \\
             x_ref - the target position \\
@@ -440,7 +440,7 @@ class Simulation(Simulation_base):
         """
         # TODO: Add your code here
         u_t = kp*(x_ref - x_real) + kd*(dx_ref - dx_real) + ki*(integral)
-
+        #print("TORQUE: {} Joint: {} P: {} x_diff: {} D: {} dx_diff: {} I: {} int: {}".format(u_t, joint, kp*(x_ref - x_real), (x_ref - x_real), kd*(dx_ref - dx_real), (dx_ref - dx_real), ki*(integral), (integral)))
         return u_t
 
     # functions for testing
@@ -566,7 +566,7 @@ class Simulation(Simulation_base):
         return pltTime, pltTarget, pltTorque, pltTorqueTime, pltPosition, pltVelocity
 
     # Task 2.2 Joint Manipulation
-    def moveJoint(self, joint, targetPosition, targetVelocity, verbose=False, interpolationSteps = 5000):
+    def moveJoint(self, joint, targetPosition, targetVelocity, verbose=False, interpolationSteps = 2000):
         """ This method moves a joint with your PD controller. \\
         Arguments: \\
             joint - the name of the joint \\
@@ -630,16 +630,17 @@ class Simulation(Simulation_base):
     '''
     Function computes hermite interpolation given 2 points, and returns a function
     '''
-    def hermiteInterpolation(self, point1, point2):
+    def hermiteInterpolation(self, point1, point2, dydx = None):
         xs = np.array([point1, point2])
         xs.sort() #The control points Xs need to be in an increasing order.
         ys = [np.sin(x + point2) + 1  for x in xs ] #changes representation in the spline
-        dydx = [0]*2 #the spline thing-y needs the rate of change at the ends of the said control points, which in our case is 0 -> 0 velocity; doesn't really work, hence padding is needed. more on this below.
+        if(type(dydx) == type(None)):
+            dydx = [0]*2 #the spline thing-y needs the rate of change at the ends of the said control points, which in our case is 0 -> 0 velocity; doesn't really work, hence padding is needed. more on this below.
         interp_func = CubicHermiteSpline(xs, xs, dydx)
         return interp_func
         
     def move_with_PD(self, endEffector, targetPosition, interpolationSteps=2000, speed=0.01, orientation=None,
-        threshold=1e-3, maxIter=3000, debug=False, verbose=False):
+        threshold=1e-3, maxIter=3000, debug=False, verbose=False, scaleP = 1, scaleD = 1, scaleI = 1):
         """
         Move joints using inverse kinematics solver and using PD control.
         This method should update joint states using the torque output from the PD controller.
@@ -692,7 +693,6 @@ class Simulation(Simulation_base):
         step_angles = np.hstack((np.c_[xpoints], np.c_[ypoints], np.c_[zpoints])) 
         step_angles = np.vstack([step_angles[0], step_angles])
         step_angles = np.vstack([step_angles[0], step_angles])
-  
         #pads final "target" position at the end to ensure that the difference with targer position is VERY negligible, and also helps reaching (tending towards) a 0 velocity state
         for _ in range(4):
             step_angles = np.vstack([step_angles, step_angles[-1]])
@@ -710,9 +710,9 @@ class Simulation(Simulation_base):
         pltTime = [0]
         
         # Dictionary stores revolut angle velocity histories for each joint
-        jointVelHist = {}
+        jointPosiHist = {}
         for joint in path:
-            jointVelHist[joint] = [self.getJointPos(joint)]
+            jointPosiHist[joint] = [self.getJointPos(joint)]
         
         # Dictionary stores the approximated real joint revolut velocity
         jointVelReal = {}
@@ -724,17 +724,16 @@ class Simulation(Simulation_base):
 
             # Return revolut angles for the next one interpolation step
             nextStep = self.inverseKinematics(endEffector, step_angles[i], threshold, orientation)
-            
             # Update target joint positions with next step to shared dictionary
             for j, joint in enumerate(path):
                 self.jointTargetPos[joint] = nextStep[j]
 
                 # Calculate the approximated revolut angle
-                jointVelHist[joint] = np.append(jointVelHist[joint], self.getJointPos(joint))
-                jointVelReal[joint] =  (jointVelHist[joint][i]-jointVelHist[joint][i-1])/self.dt
+                jointPosiHist[joint] = np.append(jointPosiHist[joint], self.getJointPos(joint))
+                jointVelReal[joint] =  (jointPosiHist[joint][i]-jointPosiHist[joint][i-1])/self.dt
             
             # One step in the simulation
-            self.tick(path,jointVelReal)
+            self.tick(path=path,realVelDict= jointVelReal, scaleP = scaleP, scaleD = scaleD, scaleI = scaleI)
 
             # Compute the endEffector position after the move
             endEffectorPos = self.getJointPosition(endEffector).flatten()
@@ -749,8 +748,8 @@ class Simulation(Simulation_base):
             err_res = err < threshold
             if err_res.all():
                 print('Target reached within threshold')
-                print('iteration', i, 'of', interpolationSteps)
-                break
+                print('iteration', i, 'of', len(step_angles))
+                #break
 
         # Return plotting
         pltTime = np.array(pltTime)
@@ -761,7 +760,7 @@ class Simulation(Simulation_base):
         # all IK iterations (optional).
         return pltTime, pltDistance
 
-    def tick(self, path=None, realVelDict=None):
+    def tick(self, path=None, integral = None, realVelDict=None, scaleP = 1, scaleD = 1, scaleI = 1):
         """Ticks one step of simulation using PD control."""
         # Iterate through all joints and update joint states using PD control.
         for joint in self.joints:
@@ -777,14 +776,17 @@ class Simulation(Simulation_base):
             self.disableVelocityController(joint)
             # print(self.ctrlConfig)
             # loads your PID gains
-            kp = self.ctrlConfig[jointController]['pid']['p'] /500
-            ki = self.ctrlConfig[jointController]['pid']['i']
-            kd = self.ctrlConfig[jointController]['pid']['d'] /5000
-
+            kp = self.ctrlConfig[jointController]['pid']['p'] /scaleP
+            ki = self.ctrlConfig[jointController]['pid']['i'] /scaleI
+            kd = self.ctrlConfig[jointController]['pid']['d'] /scaleD
+            
             ### Implement your code from here ... ###
             # TODO: obtain torque from PD controller
+            integralForJoint = 0
+            if(type(integral) != type(None)):
+                integralForJoint = integral[joint]
             if realVelDict != None:
-                torque = self.calculateTorque(self.jointTargetPos[joint], self.getJointPos(joint), (self.jointTargetPos[joint]-self.getJointPos(joint))/self.dt, realVelDict[joint], 0, kp, ki, kd)
+                torque = self.calculateTorque(self.jointTargetPos[joint], self.getJointPos(joint), (self.jointTargetPos[joint]-self.getJointPos(joint))/self.dt, realVelDict[joint], integralForJoint, kp, ki, kd, joint = joint)
             else:
                 torque = 0
             ### ... to here ###
@@ -798,14 +800,15 @@ class Simulation(Simulation_base):
             # Gravity compensation
             # A naive gravitiy compensation is provided for you
             # If you have embeded a better compensation, feel free to modify
-            #compensation = self.jointGravCompensation[joint]
-            """self.p.applyExternalForce(
+            compensation = 9.81
+            self.p.applyExternalForce(
                 objectUniqueId=self.robot,
                 linkIndex=self.jointIds[joint],
                 forceObj=[0, 0, -compensation],
                 posObj=self.getLinkCoM(joint),
                 flags=self.p.WORLD_FRAME
-            )"""
+            )
+
             # Gravity compensation ends here
 
         self.p.stepSimulation()
@@ -847,15 +850,144 @@ class Simulation(Simulation_base):
             Use angle to align eff in line with cube and target
             start behind cube
             use move_with_pd which should be similar to move_without_pd <- in the sense that target position would be a coordinate
-            after reaching behind cube, start pushing till cube reaches target
+
         """
         self.move_with_PD()
 
+    def hermiteInterpolationOP(self, endEffectorPos, targetPosition, interpolationSteps, dydx):
+        # Points on all 3 axis interpolated over steps defined
+        points = np.linspace(endEffectorPos, targetPosition, interpolationSteps)
+        # If the end efector does not move in a certain axis, hold the points the same,
+        # Else use cubic hermit spline
+        xpoints, ypoints, zpoints = [], [], []
+        # x-axis
+        if(endEffectorPos[0]==targetPosition[0]):
+            xpoints = points[:, 0]
+        else:
+            xHermite = self.hermiteInterpolation(endEffectorPos[0],targetPosition[0], dydx = dydx)
+            xpoints = xHermite(points[:,0])
+        # y-axis
+        if(endEffectorPos[1]==targetPosition[1]):
+            ypoints = points[:,1]
+        else:
+            yHermite = self.hermiteInterpolation(endEffectorPos[1],targetPosition[1], dydx = dydx)
+            ypoints = yHermite(points[:,1])
+        # z-axis
+        if(endEffectorPos[2]==targetPosition[2]):
+            zpoints = points[:,2]
+        else:
+            zHermite = self.hermiteInterpolation(endEffectorPos[2],targetPosition[2], dydx = dydx)
+            zpoints = zHermite(points[:,2])
+        
+        # Fill in the matrix with interpolation steps
+        step_angles = np.hstack((np.c_[xpoints], np.c_[ypoints], np.c_[zpoints])) 
+        step_angles = np.vstack([step_angles[0], step_angles])
+        step_angles = np.vstack([step_angles[0], step_angles])
+        #pads final "target" position at the end to ensure that the difference with targer position is VERY negligible, and also helps reaching (tending towards) a 0 velocity state
+        for _ in range(4):
+            step_angles = np.vstack([step_angles, step_angles[-1]])
+        return step_angles
 
     # Task 3.2 Grasping & Docking
-    def clamp(self, leftTargetAngle, rightTargetAngle, angularSpeed=0.005, threshold=1e-1, maxIter=300, verbose=False):
-        """A template function for you, you are free to use anything else"""
-        # TODO: Append your code here
-        pass
+    def clamp(self, targetPositions, angularSpeed=0.005, threshold=1e-1, maxIter=300, verbose=False, interpolationSteps = 2000, scaleP = 10, scaleD= 10, scaleI = 10, y_diff= 0.2, x_diff = 0.2, z_diff = 0.2):
+        # Obtain path to end effector
+        effLeft = "LARM_JOINT5"
+        effRight = "RARM_JOINT5"
+        pathLeft = self.jointPathDict[effLeft]
+        pathRight = self.jointPathDict[effRight]
+
+        # Calculate the positions the end effector should go to
+        leftStartPos = self.getJointPosition(effLeft).flatten()
+        rightStartPos = self.getJointPosition(effRight).flatten()
+        # Matrix that will store the interpolated path
+        step_angles_left= np.empty((0,3))
+        step_angles_right= np.empty((0,3))
+        targetPositionsLeft, targetPositionsRight= np.array(targetPositions), np.array(targetPositions)
+        
+        targetPositionsLeft[:,0] -= x_diff
+        targetPositionsLeft[:,1] += y_diff
+        targetPositionsRight[:,0] += x_diff
+        targetPositionsRight[:,1] -= y_diff
+        targetPositionsLeft[:-1,2] += z_diff
+ 
+        for i, left_waypoint in enumerate(targetPositionsLeft):
+            dydx = np.ones(2)
+            step_angles_left = np.vstack([step_angles_left, self.hermiteInterpolationOP(leftStartPos, left_waypoint, interpolationSteps//len(targetPositions), dydx)])
+            leftStartPos = left_waypoint
+        for i,right_waypoint in enumerate(targetPositionsRight):
+            dydx = np.ones(2)
+            dydx /=4
+            if(i == 0):
+                dydx[0] = 0
+            if(i == len(targetPositionsLeft)):
+                dydx[1] = 0
+            step_angles_right = np.vstack([step_angles_right, self.hermiteInterpolationOP(rightStartPos, right_waypoint, interpolationSteps//len(targetPositions),dydx)])
+            rightStartPos = right_waypoint
+            
+        
+        # Dictionary stores revolut angle velocity histories for each joint
+        jointPosiHistLeft = {}
+        for joint in pathLeft:
+            jointPosiHistLeft[joint] = [self.getJointPos(joint),self.getJointPos(joint)]
+        
+        # Dictionary stores the approximated real joint revolut velocity
+        jointVelRealLeft = {}
+        for joint in pathLeft:
+            jointVelRealLeft[joint] = 0
+        
+        # Dictionary stores revolut angle velocity histories for each joint
+        jointPosiHistRight = {}
+        for joint in pathRight:
+            jointPosiHistRight[joint] = [self.getJointPos(joint),self.getJointPos(joint)]
+        
+        # Dictionary stores the approximated real joint revolut velocity
+        jointVelRealRight = {}
+        for joint in pathRight:
+            jointVelRealRight[joint] = 0
+        steps_to_correct_orientation_in = len(step_angles_left)//len(targetPositions)
+
+        integral = {}
+        for joint in pathLeft:
+            integral[joint] = 0
+        for joint in pathRight:
+            integral[joint] = 0
+        orientation_actual = None
+        # Loop through interpolation steps
+        for i in range(0, len(step_angles_left)):
+            if(i%100 == 0):
+                print("iter {} of {}".format(i, len(step_angles_left)))
+            # Return revolut angles for the next one interpolation step
+            nextStepLeft = self.inverseKinematics(effLeft, step_angles_left[i], threshold, orientation_actual)
+            # Return revolut angles for the next one interpolation step
+            nextStepRight = self.inverseKinematics(effRight, step_angles_right[i], threshold, orientation_actual)
+            # Update target joint positions with next step to shared dictionary
+            for jLeft, jointLeft in enumerate(pathLeft): 
+                self.jointTargetPos[jointLeft] = nextStepLeft[jLeft]
+                jointPosiHistLeft[jointLeft] = np.append(jointPosiHistLeft[jointLeft], self.getJointPos(jointLeft))
+                integral[jointLeft] += jointPosiHistLeft[jointLeft][-1] - jointPosiHistLeft[jointLeft][-2]
+                jointVelRealLeft[jointLeft] =  (jointPosiHistLeft[jointLeft][i]-jointPosiHistLeft[jointLeft][i-1])/self.dt
+
+                # Calculate the approximated revolut angle
+            for jRight, jointRight in enumerate(pathRight):
+                self.jointTargetPos[jointRight] = nextStepRight[jRight]
+                jointPosiHistRight[jointRight] = np.append(jointPosiHistRight[jointRight], self.getJointPos(jointRight))
+                integral[jointRight] += jointPosiHistRight[jointRight][-1] - jointPosiHistRight[jointRight][-2]
+                jointVelRealRight[jointRight] =  (jointPosiHistRight[jointRight][i]-jointPosiHistRight[jointRight][i-1])/self.dt
+            
+            # One step in the simulation
+            self.tick(pathLeft,jointVelRealLeft, integral, scaleP, scaleD, scaleI)
+            self.tick(pathRight,jointVelRealRight, integral, scaleP, scaleD, scaleI)
+    
+            # Compute the endEffector position after the move
+        effLeftPos = self.getJointPosition(effLeft).flatten()
+        effRightPos = self.getJointPosition(effRight).flatten()
+
+        errLeft = np.absolute(effLeftPos - targetPositionsLeft)
+        err_resLeft = errLeft < threshold
+        errRight = np.absolute(effRightPos - targetPositionsRight)
+        err_resRight = errRight < threshold
+        if err_resLeft.all() and err_resRight.all():
+            print('Target reached within threshold')
+            print('iteration', i, 'of', interpolationSteps)
 
  ### END
