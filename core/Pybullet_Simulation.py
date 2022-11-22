@@ -699,10 +699,13 @@ class Simulation(Simulation_base):
 
         # To store initial revolut position of each step
         init_q = []
+        init_q_const = {}
         # Loop through the affected links
-        for joint in path:
-            init_q.append(self.getJointPos(joint))
-        assert(len(init_q) == len(path))
+        for joint in self.jointList:
+            if joint in path:
+                init_q.append(self.getJointPos(joint))
+            else:
+                init_q_const[joint] = self.getJointPos(joint)
 
         # Compute the initial distance to target
         distanceToTaget = np.linalg.norm(endEffectorPos - targetPosition)
@@ -732,6 +735,9 @@ class Simulation(Simulation_base):
                 jointPosiHist[joint] = np.append(jointPosiHist[joint], self.getJointPos(joint))
                 jointVelReal[joint] =  (jointPosiHist[joint][i]-jointPosiHist[joint][i-1])/self.dt
             
+            for joint in init_q_const:
+                self.jointTargetPos[joint] = init_q_const[joint]
+
             # One step in the simulation
             self.tick(path=path,realVelDict= jointVelReal, scaleP = scaleP, scaleD = scaleD, scaleI = scaleI)
 
@@ -768,9 +774,6 @@ class Simulation(Simulation_base):
             jointController = self.jointControllers[joint]
             if jointController == 'SKIP_THIS_JOINT':
                 continue
-            if path != None:
-                if joint not in path:
-                    continue
 
             # disable joint velocity controller before apply a torque
             self.disableVelocityController(joint)
@@ -785,10 +788,19 @@ class Simulation(Simulation_base):
             integralForJoint = 0
             if(type(integral) != type(None)):
                 integralForJoint = integral[joint]
-            if realVelDict != None:
-                torque = self.calculateTorque(self.jointTargetPos[joint], self.getJointPos(joint), (self.jointTargetPos[joint]-self.getJointPos(joint))/self.dt, realVelDict[joint], integralForJoint, kp, ki, kd, joint = joint)
-            else:
-                torque = 0
+            torque = 0
+            if path != None:
+                print(path)
+                if joint in path:
+                    if realVelDict != None:
+                        torque = self.calculateTorque(self.jointTargetPos[joint], self.getJointPos(joint), (self.jointTargetPos[joint]-self.getJointPos(joint))/self.dt, realVelDict[joint], integralForJoint, kp, ki, kd, joint = joint)
+                    else:
+                        torque = 0
+                        print('Here :///')
+                elif joint not in path:
+                    torque = self.calculateTorque(self.jointTargetPos[joint], self.getJointPos(joint), (self.jointTargetPos[joint]-self.getJointPos(joint))/self.dt, 0, integralForJoint, kp, ki, kd, joint = joint)
+                    print('HEre')
+            print('Joint {} with torque {}'.format(joint, torque))
             ### ... to here ###
             self.p.setJointMotorControl2(
                 bodyIndex=self.robot,
