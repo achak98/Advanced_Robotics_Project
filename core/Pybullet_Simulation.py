@@ -248,8 +248,13 @@ class Simulation(Simulation_base):
         # a 3xn or a 6xn Jacobian matrix, where 'n' is the number of joints in
         # your kinematic chain.
 
+
+        
+
         # Initialise an empty Jacobiab Matrix (3xN)
         J = np.empty((0,3))
+
+
 
         # Vector Jacobian
         J_V = np.empty((0,3))
@@ -263,24 +268,28 @@ class Simulation(Simulation_base):
         # Loop through the path from origin to the end effector
         # i.e. path = ['base_to_waist','CHEST_JOINT0','LARM_JOINT0','LARM_JOINT1']
         path = self.jointPathDict[endEffector]
-        for joint in path:
-            ai = self.getJointAxis(joint)
-            pi = endEffectorPos - self.getJointPosition(joint)
-            pi = pi.reshape(1,3)
+        for joint in self.jointList:
+            if joint not in path:
+                J = np.vstack([J,np.zeros(3)])
+                J_V = np.vstack([J_V, np.zeros(3)])
+            elif joint in path:
+                ai = self.getJointAxis(joint)
+                pi = endEffectorPos - self.getJointPosition(joint)
+                pi = pi.reshape(1,3)
 
-            # Cross the rotational matrix and positional vector of each link
-            cross_product = np.cross(ai,pi)
-            cross_vector = np.cross(ai, endEffectorRot)
+                # Cross the rotational matrix and positional vector of each link
+                cross_product = np.cross(ai,pi)
+                cross_vector = np.cross(ai, endEffectorRot)
             
 
-            # Add the entry to the Jacobian Matrix
-            J = np.vstack([J,cross_product])
-            J_V = np.vstack([J_V, cross_vector])
+                # Add the entry to the Jacobian Matrix
+                J = np.vstack([J,cross_product])
+                J_V = np.vstack([J_V, cross_vector])
 
         
         # Make sure to transpose the matrix before returning
-        assert J.T.shape == (3,len(path))
-        assert J_V.T.shape == (3,len(path))
+        assert J.T.shape == (3,15)
+        assert J_V.T.shape == (3,15)
 
         return np.vstack([J.T,J_V.T])
 
@@ -306,9 +315,9 @@ class Simulation(Simulation_base):
         current_q = []
 
         # Loop through the affected links
-        for joint in path:
+        for joint in self.jointList:
             current_q.append(self.getJointPos(joint))
-        assert(len(current_q) == len(path))
+        assert(len(current_q) == 15)
 
         endEffectorPos = self.getJointPosition(endEffector).flatten()
 
@@ -363,8 +372,8 @@ class Simulation(Simulation_base):
         assert(len(init_q) == len(path))
 
         # Store the full trajectory here
-        traj = np.empty((0,len(path)))
-        traj = np.vstack((traj,init_q))
+        #traj = np.empty((0,15))
+        #traj = np.vstack((traj,init_q))
 
         # Compute the initial distance to target
         distanceToTaget = np.linalg.norm(endEffectorPos - targetPosition)
@@ -378,15 +387,16 @@ class Simulation(Simulation_base):
             nextStep = self.inverseKinematics(endEffector, step_positions[i], threshold, orientation)
 
             # Update target joint positions with next step to shared dictionary
-            for j, joint in enumerate(path):
+            for j, joint in enumerate(self.jointList):
                 self.jointTargetPos[joint] = nextStep[j]
+        
                 # self.p.resetJointState(self.robot, self.jointIds[joint], nextStep[j])
-
+            print(self.jointTargetPos)
             # One step in the simulation
             self.tick_without_PD(path)
             print('One Step', i)
 
-            traj = np.vstack((traj,nextStep))
+            #traj = np.vstack((traj,nextStep))
 
             # Compute the endEffector position after the move
             endEffectorPos = self.getJointPosition(endEffector).flatten()
