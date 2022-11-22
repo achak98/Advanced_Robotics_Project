@@ -248,13 +248,8 @@ class Simulation(Simulation_base):
         # a 3xn or a 6xn Jacobian matrix, where 'n' is the number of joints in
         # your kinematic chain.
 
-
-        
-
         # Initialise an empty Jacobiab Matrix (3xN)
         J = np.empty((0,3))
-
-
 
         # Vector Jacobian
         J_V = np.empty((0,3))
@@ -263,7 +258,6 @@ class Simulation(Simulation_base):
         endEffectorPos = self.getJointPosition(endEffector)
         # Obtain the end effector rotation axis
         endEffectorRot = self.getJointAxis(endEffector)
-       
 
         # Loop through the path from origin to the end effector
         # i.e. path = ['base_to_waist','CHEST_JOINT0','LARM_JOINT0','LARM_JOINT1']
@@ -280,17 +274,14 @@ class Simulation(Simulation_base):
                 # Cross the rotational matrix and positional vector of each link
                 cross_product = np.cross(ai,pi)
                 cross_vector = np.cross(ai, endEffectorRot)
-            
 
                 # Add the entry to the Jacobian Matrix
                 J = np.vstack([J,cross_product])
                 J_V = np.vstack([J_V, cross_vector])
 
-        
         # Make sure to transpose the matrix before returning
         assert J.T.shape == (3,15)
         assert J_V.T.shape == (3,15)
-
         return np.vstack([J.T,J_V.T])
 
     # Task 1.2 Inverse Kinematics
@@ -323,12 +314,9 @@ class Simulation(Simulation_base):
 
         # Obtain the Jacobian, use the current joint configurations and E-F position
         J = self.jacobianMatrix(endEffector)
-        #print(J)
-       # exit
+      
         if type(orientation) == type(None):
             J = J[:3,:]
-
-        
 
         # Compute the dy steps
         deltaStep = targetPosition - endEffectorPos #This gets updated every step of the way
