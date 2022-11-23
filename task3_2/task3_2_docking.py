@@ -111,22 +111,21 @@ def solution(cubeId, targetId):
     
     initPos[2] -= 0.02
     initPos[0] -= 0.08
-    x_offset = -0.10
-    y_offset = -0.
-    z_offset = -0.00
-    finalTargetPosition = np.array([0.35+x_offset, 0.38+y_offset, 1.0+z_offset])
-    #wayPoint1 = sim.getJointPosition(leftWrist).flatten()
+    
+    
+    
+    finalTargetPosition = np.array([0.345, 0.375, 1.04])
+    
     initPosUp = 0 + initPos
     initPosUp[2] += 0.12
     initPos[0] += 0.05
 
     finalTargetPositionUp = 0 + finalTargetPosition
     finalTargetPositionUp[2] = 0 + initPosUp[2]
+    print("Ini pos: ", initPos)
+    print("Ini pos up : ", initPosUp)
+    print("fini pos: ", finalTargetPosition)
     interp_steps = 4000
-    scaleP = 0.05
-    scaleD = 0.05
-    scaleI = 500000
-
 
     y_diff=0.08
     x_diff=0.04
@@ -136,15 +135,12 @@ def solution(cubeId, targetId):
     mid_point_up[0] = finalTargetPos[0]
     
     finaltargetmidup = (finalTargetPositionUp+finalTargetPos)/2
-    crossingObstacleHeight  = (finaltargetmidup+finalTargetPos)/2
-    crossingObstacleHeight[2] -= 0.2
+    
     targetPositions = np.empty((0,3))
 
     targetPositions = np.vstack([targetPositions, initPos])
 
-
     targetPositions = np.vstack([targetPositions, initPosUp])
-
    
     targetPositions = np.vstack([targetPositions, finalTargetPositionUp])
 
@@ -152,12 +148,8 @@ def solution(cubeId, targetId):
     
     targetPositions = np.vstack([targetPositions, finalTargetPosition])
     
-    print("TARGETS: ", targetPositions)
-
-
-    #sim.move_with_PD(leftWrist, leftInit, interpolationSteps=interp_steps, speed=0.01, orientation=left_orientation, threshold=1e-3, debug=False, verbose=False)
-    #sim.move_with_PD(rightWrist, rightInit,interpolationSteps=interp_steps, speed=0.01, orientation=right_orientation, threshold=1e-3, debug=False, verbose=False)
-    sim.clamp(targetPositions = targetPositions, angularSpeed=0.005, interpolationSteps = interp_steps, scaleP = scaleP, scaleD= scaleD, scaleI = scaleI, y_diff= y_diff, x_diff = x_diff, z_diff = z_diff)
+    
+    sim.clamp(targetPositions = targetPositions, angularSpeed=0.005, interpolationSteps = interp_steps, y_diff= y_diff, x_diff = x_diff, z_diff = z_diff)
     print('End of wp1, end effector at : {} and {}'.format(sim.getJointPosition(leftWrist).flatten(), sim.getJointPosition(rightWrist).flatten()))
     print("TargetPositionDumbbell: ", sim.p.getBasePositionAndOrientation(cubeId)[0], "TargetPosition at:", sim.p.getBasePositionAndOrientation(targetId)[0])
     print("DISTANCE: ", np.linalg.norm(np.array(sim.p.getBasePositionAndOrientation(cubeId)[0])-np.array(sim.p.getBasePositionAndOrientation(targetId)[0])))

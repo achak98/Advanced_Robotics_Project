@@ -930,6 +930,7 @@ class Simulation(Simulation_base):
                 jointPosiHist[joint] = np.append(jointPosiHist[joint], self.getJointPos(joint))
                 jointVelReal[joint] =  (jointPosiHist[joint][i]-jointPosiHist[joint][i-1])/self.dt
             self.tick(path=pathLeft, integral = integral, realVelDict=jointVelReal, positionHistoryDict = jointPosiHist)
+            print("left :", self.getJointPosition("LARM_JOINT5")," right :", self.getJointPosition("RARM_JOINT5"))
             
 
 
@@ -947,22 +948,27 @@ class Simulation(Simulation_base):
         step_angles_right= np.empty((0,3))
         targetPositionsLeft, targetPositionsRight= np.array(targetPositions), np.array(targetPositions)
         
-        targetPositionsLeft[:,0] += x_diff
+        targetPositionsLeft[:,0] -= x_diff
         targetPositionsLeft[:,1] += y_diff
-        #targetPositionsRight[-2:,0] += x_diff
+        
         targetPositionsRight[:,1] -= y_diff
+    
         targetPositionsLeft[:-1,2] += z_diff
         targetPositionsRight[:-1,2] += z_diff
+        
 
-        targetPositionsLeft[-1,0] += x_diff
-        targetPositionsLeft[-1,1] += y_diff
-        targetPositionsRight[-1,0] += x_diff
-        targetPositionsRight[-1,1] += y_diff
+        #targetPositionsLeft[-1,0] += x_diff
+        #targetPositionsLeft[-1,1] += y_diff
+        #targetPositionsRight[-1,0] += x_diff
+        #targetPositionsRight[-1,1] += y_diff
         #targetPositionsRight[-2:,1] += 2*y_diff
         #targetPositionsRight[-2:,0] -= 2*x_diff
          # Calculate the positions the end effector should go to
         leftStartPos = targetPositionsLeft[0]
         rightStartPos = targetPositionsRight[0]
+        print(targetPositionsLeft)
+        print(targetPositionsRight)
+        time.sleep(5)
 
         for i, left_waypoint in enumerate(targetPositionsLeft[1:]):
             dydx = np.ones(2)
@@ -992,8 +998,8 @@ class Simulation(Simulation_base):
             integral[joint] = 0
 
         initial_clamp_iteration_scale = 10
-        left_orientation_goal = [0,1/1.4,0]
-        right_orientation_goal = [0,-1/1.4,0]
+        left_orientation_goal = [-1/4,1/1.4,0]
+        right_orientation_goal = [1/4,-1/1.4,0]
         left_orientation_current = self.getJointAxis(effLeft)
         right_orientation_current = self.getJointAxis(effRight)
         left_orientation = np.linspace(left_orientation_current, left_orientation_goal, len(step_angles_left)//initial_clamp_iteration_scale)
