@@ -100,48 +100,36 @@ def solution(cubeId, targetId):
     #print('Initial Orientation: {}'.format(sim.getJointAxis(leftWrist).flatten()))
     
     scaleP = 1
-    scaleD = 0.95
+    scaleD = 4
     scaleI = 1000000000000000
     
     wayPoint1 = sim.getJointPosition(leftWrist).flatten()
     wayPoint1[0]-=0.3
-    wayPoint1[1]-=0.115
-    wayPoint1[2]+=0.1
-    interp_steps = 500
-    sim.move_with_PD(leftWrist, wayPoint1,interpolationSteps=interp_steps, speed=0.01, orientation=[0,0,1], threshold=1e-3, debug=False, verbose=False, scaleP = scaleP, scaleD = scaleD, scaleI = scaleI)
+    wayPoint1[2] = 1.04
+
+    interp_steps = 1000
+    sim.move_with_PD(leftWrist, wayPoint1,interpolationSteps=interp_steps//2, speed=0.01, orientation=[2,0,1], threshold=1e-3, debug=False, verbose=False, scaleP = scaleP, scaleD = scaleD, scaleI = scaleI)
     #print('End of wp1, target at: {} end effector at : {}'.format(wayPoint1, sim.getJointPosition(leftWrist).flatten()))
-
-    #sim.moveJoint(joint = "LARM_JOINT2", targetPosition = sim.getJointPos("LARM_JOINT2")-np.deg2rad(4), targetVelocity = 0.0, interpolationSteps = 300)    
-    #sim.disableVelocityController("LARM_JOINT2")
-    sim.moveJoint(joint = "LARM_JOINT5", targetPosition = sim.getJointPos("LARM_JOINT5")+np.deg2rad(45), targetVelocity = 0.0, interpolationSteps = 300)
-
+    
     wayPoint2 = sim.getJointPosition(leftWrist).flatten()
-    wayPoint2[0]-=0.08
-    wayPoint2[1]-=0.11
-    wayPoint2[2]=.96
-    sim.move_with_PD(leftWrist, wayPoint2,interpolationSteps=interp_steps*2, speed=0.01, orientation=[0,0,1], threshold=1e-3, debug=False, verbose=False, scaleP = scaleP, scaleD = scaleD, scaleI = scaleI)
-    #print('End of wp2, target at: {} end effector at : {}'.format(wayPoint2, sim.getJointPosition(leftWrist).flatten()))
-    
-    
+    wayPoint2[0] -= 0.02
+    wayPoint2[1] -= 0.23
+    wayPoint2[2] = .985
+    sim.move_with_PD(leftWrist, wayPoint2,interpolationSteps=interp_steps//2, speed=0.01, orientation=[1,1,1], threshold=1e-3, debug=False, verbose=False)
 
-    #pltTime, pltTarget, pltTorque, pltTorqueTime, pltPosition, pltVelocity = \
-    #    sim.moveJoint(
-    #         "LARM_JOINT5", np.deg2rad(45), 0.0, False)
     #wayPoint3 = sim.getJointPosition(leftWrist).flatten()
-    #sim.move_with_PD(leftWrist, wayPoint3,interpolationSteps=interp_steps, speed=0.01, orientation=[0,0,1], threshold=1e-3, debug=False, verbose=False)
-    #print('End of wp3, end effector at : {}'.format(sim.getJointPosition(leftWrist).flatten()))
+    #wayPoint3[2] = 1.05
+    #sim.move_with_PD(leftWrist, wayPoint3,interpolationSteps=interp_steps//2, speed=0.01, orientation=[2,0,1], threshold=1e-3, debug=False, verbose=False)
 
-    joint_axis = sim.getJointOrientation(leftWrist)
-    current_posi = sim.getJointPosition(leftWrist).flatten()
-    for i in range (5, 0, -1):
-        wayPoint3 = sim.getJointPosition(leftWrist).flatten()
-        wayPoint3[0] = current_posi[0] + (0.540-current_posi[0])/i
-        wayPoint3[1] = current_posi[1] + (-0.13-current_posi[1])/i
-        wayPoint3[2] = current_posi[2] + (.94-current_posi[2])/i
-        x_vector = joint_axis[0]+ (1-joint_axis[0])/i
-        y_vector = joint_axis[1]-(joint_axis[1])/i
-        z_vector = joint_axis[2]-(joint_axis[2])/i
-        sim.move_with_PD(leftWrist, wayPoint3,interpolationSteps=250, speed=0.01, orientation=[0,0,1], threshold=1e-3, debug=False, verbose=False)
+
+    wayPoint4 = sim.getJointPosition(leftWrist).flatten()
+    wayPoint4[0] = 0.56
+    wayPoint4[1] = 0
+    wayPoint4[2] = 0.96
+        #wayPoint3[2] = current_posi[2] + (.94-current_posi[2])*(5-i+1)//5
+
+    sim.move_with_PD(leftWrist, wayPoint4,interpolationSteps=interp_steps, speed=0.01, orientation=[0,0,1], threshold=1e-3, debug=False, verbose=False)
+
        # print('End of wp3.{}, target at: {} end effector at : {}'.format(6-i,wayPoint3,sim.getJointPosition(leftWrist).flatten()))
     time.sleep(2)
     """wayPoint5 = sim.getJointPosition(leftWrist).flatten()

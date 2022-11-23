@@ -40,7 +40,7 @@ robotConfigs = {
     "robotPIDConfigs": core_path + "/PD_gains.yaml",
     "robotStartPos": [0, 0, 0.85],
     "robotStartOrientation": [0, 0, 0, 1],
-    "fixedBase": False,
+    "fixedBase": True,
     "colored": False
 }
 
@@ -109,42 +109,46 @@ def solution(cubeId, targetId):
     rightWrist = "RARM_JOINT5"
     initPos = (sim.getJointPosition(leftWrist).flatten() + sim.getJointPosition(rightWrist).flatten())/2
     
-    initPos[2]
-    initPos[0] += 0.08
-    x_offset = 0.10
-    y_offset = +0.08    
-    z_offset = 0
+    initPos[2] -= 0.02
+    initPos[0] -= 0.08
+    x_offset = -0.10
+    y_offset = -0.
+    z_offset = -0.00
     finalTargetPosition = np.array([0.35+x_offset, 0.38+y_offset, 1.0+z_offset])
     #wayPoint1 = sim.getJointPosition(leftWrist).flatten()
     initPosUp = 0 + initPos
-    initPosUp[2] += 0.2
-    initPos[0] += 0.1
+    initPosUp[2] += 0.12
+    initPos[0] += 0.05
 
     finalTargetPositionUp = 0 + finalTargetPosition
     finalTargetPositionUp[2] = 0 + initPosUp[2]
     interp_steps = 4000
-    scaleP = 1
-    scaleD = 1   
-    scaleI = 50000
+    scaleP = 0.05
+    scaleD = 0.05
+    scaleI = 500000
 
 
-    y_diff=0.030
-    x_diff=0.005
-    z_diff=0.09
+    y_diff=0.08
+    x_diff=0.04
+    z_diff=0.12
 
     mid_point_up = (initPosUp+finalTargetPositionUp)/2
-
-    initmidup =  (initPosUp+initPos)/2
+    mid_point_up[0] = finalTargetPos[0]
     
+    finaltargetmidup = (finalTargetPositionUp+finalTargetPos)/2
+    crossingObstacleHeight  = (finaltargetmidup+finalTargetPos)/2
+    crossingObstacleHeight[2] -= 0.2
     targetPositions = np.empty((0,3))
-    
+
     targetPositions = np.vstack([targetPositions, initPos])
 
-    targetPositions = np.vstack([targetPositions, initmidup])
 
-    targetPositions = np.vstack([targetPositions, mid_point_up])
+    targetPositions = np.vstack([targetPositions, initPosUp])
 
+   
     targetPositions = np.vstack([targetPositions, finalTargetPositionUp])
+
+    targetPositions = np.vstack([targetPositions, finaltargetmidup])
     
     targetPositions = np.vstack([targetPositions, finalTargetPosition])
     
