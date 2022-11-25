@@ -18,16 +18,16 @@ jointList = [
         #'HEAD_JOINT1',
         #'LARM_JOINT0',
         #'LARM_JOINT1',
-        'LARM_JOINT2',
-        """'LARM_JOINT3',
-        'LARM_JOINT4',
-        'LARM_JOINT5',
-        'RARM_JOINT0',
-        'RARM_JOINT1',
-        'RARM_JOINT2',
-        'RARM_JOINT3',
-        'RARM_JOINT4',
-        'RARM_JOINT5'"""
+        'LARM_JOINT2'
+#        'LARM_JOINT3',
+ #       'LARM_JOINT4',
+  #      'LARM_JOINT5',
+   #     'RARM_JOINT0',
+    #    'RARM_JOINT1',
+     #   'RARM_JOINT2',
+      #  'RARM_JOINT3',
+       # 'RARM_JOINT4',
+        #'RARM_JOINT5'
         #'RHAND',
         #'LHAND'
     ]

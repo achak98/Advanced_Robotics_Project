@@ -107,14 +107,12 @@ def solution(cubeId, targetId):
 
     leftWrist = "LARM_JOINT5"
     rightWrist = "RARM_JOINT5"
-    initPos = (sim.getJointPosition(leftWrist).flatten() + sim.getJointPosition(rightWrist).flatten())/2
+    initPos = (sim.getJointPosition(leftWrist).flatten() + sim.getJointPosition(rightWrist).flatten())/2 #mid point of the initial coordinates of the two end effectors
     
     initPos[2] -= 0.02
     initPos[0] -= 0.08
     
-    
-    
-    finalTargetPosition = np.array([0.345, 0.375, 1.04])
+    finalTargetPosition = np.array([0.31, 0.37, 1.04])
     
     initPosUp = 0 + initPos
     initPosUp[2] += 0.12
@@ -122,9 +120,7 @@ def solution(cubeId, targetId):
 
     finalTargetPositionUp = 0 + finalTargetPosition
     finalTargetPositionUp[2] = 0 + initPosUp[2]
-    print("Ini pos: ", initPos)
-    print("Ini pos up : ", initPosUp)
-    print("fini pos: ", finalTargetPosition)
+
     interp_steps = 4000
 
     y_diff=0.08
