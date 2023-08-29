@@ -40,7 +40,7 @@ robotConfigs = {
     "robotPIDConfigs": core_path + "/PD_gains.yaml",
     "robotStartPos": [0, 0, 0.85],
     "robotStartOrientation": [0, 0, 0, 1],
-    "fixedBase": False,
+    "fixedBase": True,
     "colored": False
 }
 
@@ -107,53 +107,45 @@ def solution(cubeId, targetId):
 
     leftWrist = "LARM_JOINT5"
     rightWrist = "RARM_JOINT5"
-    initPos = (sim.getJointPosition(leftWrist).flatten() + sim.getJointPosition(rightWrist).flatten())/2
+    initPos = (sim.getJointPosition(leftWrist).flatten() + sim.getJointPosition(rightWrist).flatten())/2 #mid point of the initial coordinates of the two end effectors
     
-    initPos[2]
-    initPos[0] += 0.08
-    x_offset = 0.10
-    y_offset = +0.08    
-    z_offset = 0
-    finalTargetPosition = np.array([0.35+x_offset, 0.38+y_offset, 1.0+z_offset])
-    #wayPoint1 = sim.getJointPosition(leftWrist).flatten()
+    initPos[2] -= 0.02
+    initPos[0] -= 0.08
+    
+    finalTargetPosition = np.array([0.31, 0.37, 1.04])
+    
     initPosUp = 0 + initPos
-    initPosUp[2] += 0.2
-    initPos[0] += 0.1
+    initPosUp[2] += 0.12
+    initPos[0] += 0.05
 
     finalTargetPositionUp = 0 + finalTargetPosition
     finalTargetPositionUp[2] = 0 + initPosUp[2]
+
     interp_steps = 4000
-    scaleP = 1
-    scaleD = 1   
-    scaleI = 50000
 
-
-    y_diff=0.030
-    x_diff=0.005
-    z_diff=0.09
+    y_diff=0.08
+    x_diff=0.04
+    z_diff=0.12
 
     mid_point_up = (initPosUp+finalTargetPositionUp)/2
-
-    initmidup =  (initPosUp+initPos)/2
+    mid_point_up[0] = finalTargetPos[0]
+    
+    finaltargetmidup = (finalTargetPositionUp+finalTargetPos)/2
     
     targetPositions = np.empty((0,3))
-    
+
     targetPositions = np.vstack([targetPositions, initPos])
 
-    targetPositions = np.vstack([targetPositions, initmidup])
-
-    targetPositions = np.vstack([targetPositions, mid_point_up])
-
+    targetPositions = np.vstack([targetPositions, initPosUp])
+   
     targetPositions = np.vstack([targetPositions, finalTargetPositionUp])
+
+    targetPositions = np.vstack([targetPositions, finaltargetmidup])
     
     targetPositions = np.vstack([targetPositions, finalTargetPosition])
     
-    print("TARGETS: ", targetPositions)
-
-
-    #sim.move_with_PD(leftWrist, leftInit, interpolationSteps=interp_steps, speed=0.01, orientation=left_orientation, threshold=1e-3, debug=False, verbose=False)
-    #sim.move_with_PD(rightWrist, rightInit,interpolationSteps=interp_steps, speed=0.01, orientation=right_orientation, threshold=1e-3, debug=False, verbose=False)
-    sim.clamp(targetPositions = targetPositions, angularSpeed=0.005, interpolationSteps = interp_steps, scaleP = scaleP, scaleD= scaleD, scaleI = scaleI, y_diff= y_diff, x_diff = x_diff, z_diff = z_diff)
+    
+    sim.clamp(targetPositions = targetPositions, angularSpeed=0.005, interpolationSteps = interp_steps, y_diff= y_diff, x_diff = x_diff, z_diff = z_diff)
     print('End of wp1, end effector at : {} and {}'.format(sim.getJointPosition(leftWrist).flatten(), sim.getJointPosition(rightWrist).flatten()))
     print("TargetPositionDumbbell: ", sim.p.getBasePositionAndOrientation(cubeId)[0], "TargetPosition at:", sim.p.getBasePositionAndOrientation(targetId)[0])
     print("DISTANCE: ", np.linalg.norm(np.array(sim.p.getBasePositionAndOrientation(cubeId)[0])-np.array(sim.p.getBasePositionAndOrientation(targetId)[0])))
